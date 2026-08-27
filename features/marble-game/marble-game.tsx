@@ -14,6 +14,7 @@ import {
   WARN_AFTER_MS,
   type GameMode,
 } from "./game-rules";
+import { Fireworks } from "./fireworks";
 import { HexBoard } from "./hex-board";
 import styles from "./marble-game.module.css";
 import {
@@ -223,9 +224,10 @@ export function MarbleGame() {
 
         {finished ? (
           <div className={cn(styles.overlay, styles.overlayDim)}>
-            <div className="min-w-[240px] rounded-[var(--radius-lg)] border bg-card px-6 py-4 shadow-lg">
+            <Fireworks active={game.cleared} seedBase={game.elapsedMs} />
+            <div className="relative z-10 min-w-[240px] rounded-[var(--radius-lg)] border bg-card px-6 py-4 shadow-lg">
               <p className="mb-1.5 text-[13px] font-medium text-muted-foreground">
-                {game.cleared ? "클리어" : "종료"}
+                {game.cleared ? "완벽 클리어" : "종료"}
               </p>
               <p
                 className={cn(
@@ -233,17 +235,23 @@ export function MarbleGame() {
                   game.cleared ? "text-primary" : "text-destructive"
                 )}
               >
-                {game.cleared ? "클리어!" : "게임 종료"}
+                {game.cleared ? "환상적이에요! 클리어!" : "게임 종료"}
               </p>
               <p className="mt-2.5 text-sm leading-relaxed text-muted-foreground">
                 {game.ending === "clear"
-                  ? `${TOTAL_MARBLE_COUNT}번까지 모두 눌렀습니다. 점수에 ${game.scoreTimeBonus}점이 더해졌습니다.`
+                  ? `${TOTAL_MARBLE_COUNT}개의 구슬을 하나도 놓치지 않았어요! 점수에 ${game.scoreTimeBonus}점이 더해졌습니다.`
                   : game.ending === "timeout"
                     ? `${TIME_LIMIT_SECONDS}초가 지났습니다.`
                     : game.ending === "stopped"
                       ? "게임을 중단했습니다."
                       : "순서에 맞지 않는 곳을 눌렀습니다."}
               </p>
+              {game.ending === "clear" && game.mode === "easy" ? (
+                <p className="mt-2 text-[13px] font-medium text-primary">
+                  다음엔 어려움 모드에도 도전해 보세요! 위쪽 난이도에서 바꿀 수
+                  있어요.
+                </p>
+              ) : null}
             </div>
           </div>
         ) : null}

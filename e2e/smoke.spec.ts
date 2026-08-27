@@ -191,6 +191,51 @@ test("22번까지 모두 누르면 클리어되고 남은 시간이 더해진다
   await expect(page.getByText(/구슬 22 \+ 남은 시간 \d+/)).toBeVisible();
 });
 
+test("클리어하면 가운데 불꽃이 터지고, 쉬움 모드라면 어려움 모드를 권한다", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "게임 시작" }).click();
+  await expect(
+    page.getByRole("button", { name: "구슬 1", exact: true }),
+  ).toBeVisible({ timeout: 10_000 });
+
+  for (let number = 1; number <= 22; number++) {
+    await page
+      .getByRole("button", { name: `구슬 ${number}`, exact: true })
+      .click();
+  }
+
+  await expect(page.getByText("환상적이에요! 클리어!")).toBeVisible();
+  // 판마다 배치가 달라지므로 개수만 확인한다. 두 물결 × 14개 = 28개다.
+  await expect(page.locator('[class*="fireworkParticle"]')).toHaveCount(28);
+  await expect(
+    page.getByText(/다음엔 어려움 모드에도 도전해 보세요/),
+  ).toBeVisible();
+});
+
+test("어려움 모드로 클리어하면 어려움 모드를 권하지 않는다", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("combobox", { name: "난이도" }).selectOption("hard");
+  await page.getByRole("button", { name: "게임 시작" }).click();
+  await expect(
+    page.getByRole("button", { name: "구슬 1", exact: true }),
+  ).toBeVisible({ timeout: 10_000 });
+
+  for (let number = 1; number <= 22; number++) {
+    await page
+      .getByRole("button", { name: `구슬 ${number}`, exact: true })
+      .click();
+  }
+
+  await expect(page.getByText("환상적이에요! 클리어!")).toBeVisible();
+  await expect(
+    page.getByText(/다음엔 어려움 모드에도 도전해 보세요/),
+  ).toBeHidden();
+});
+
 test("결과 캡쳐를 누르면 점수가 담긴 이미지를 내려받는다", async ({
   page,
 }, testInfo) => {
