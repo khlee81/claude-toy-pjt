@@ -16,6 +16,7 @@ import {
 } from "./game-rules";
 import { Fireworks } from "./fireworks";
 import { HexBoard } from "./hex-board";
+import { TauntMascot } from "./taunt-mascot";
 import styles from "./marble-game.module.css";
 import {
   copyResultImage,
@@ -147,6 +148,8 @@ export function MarbleGame() {
         onLuckyClick={game.clickLucky}
         onEmptyClick={game.clickEmpty}
       >
+        <TauntMascot active={game.mascotVisible} />
+
         {game.phase === "idle" ? (
           <div className={cn(styles.overlay, styles.overlayDim)}>
             <div className="max-w-md rounded-[var(--radius-lg)] border bg-card p-5 text-left shadow-lg sm:p-6">
