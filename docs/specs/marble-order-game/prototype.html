@@ -1,0 +1,723 @@
+<!--
+  prototype shell: the review chrome every prototype starts from.
+
+  Keep this comment in the prototype you grow from here: it is the contract,
+  and later turns work from that file rather than from this one.
+
+  Contract (extend product screens; keep the review shell):
+  - Product:  .sh-stage contains only end-user product UI. Keep review notes,
+               rationale, instructions, and approval controls in conversation.
+  - Screens:  <section data-screen="slug" data-title="Label"> inside .sh-stage.
+               The selector, arrow keys, and #hash routing build themselves.
+               Use one option per product destination or distinct surface,
+               named by its product role. Keep baselines, variants, comparison
+               labels, steps, indexes, and progress out of names and states.
+               Links may use href="#slug".
+  - States:   "Default" is automatic. A screen declares only representative
+               presets in data-states="Empty,Error". Use natural, screen-specific
+               names. Reserve presets for important multi-step results, forced
+               data or errors, or materially different structure; keep one-click
+               and transient states as interactions. Use data-when="Empty" on
+               preset-only elements. Call prototypeShell.setState("Name") on
+               entry and setState("Default") on exit, including when repeated
+               actions cross a preset condition.
+  - Viewport: "vp (m)" cycles full / 390 / 768. The 390 preset is a
+               fixed-height, internally scrolling phone frame. Start a
+               mobile-first prototype by adding class="sh-vp-390" to <body>
+               (or a bootstrap classList.add before the chrome script runs).
+  - Pinning:  keep in-frame bars (tab bars, CTAs) inside the phone with
+               position: sticky; position: fixed pins to the browser window.
+  - Tokens:   replace the project-tokens block with project tokens copied
+               verbatim. Map differing names to --background, --foreground, and
+               --font afterwards; replace network fonts with a system stack and
+               note that substitution. Without a design system, keep this
+               palette as the finished style.
+  - Placeholders: .wf-pic stands in for pictures the prototype has no real
+               files for. Use real text everywhere text belongs.
+
+  - Chrome:   Keep exactly the screen selector, selected-screen state selector,
+               and viewport cycle. Chrome that needs explaining has failed.
+
+  Self-contained by design: no build, no framework, no network.
+-->
+<meta charset="utf-8">
+<title>Prototype</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  /* project tokens copied verbatim from app/globals.css (shadcn base-maia / mist) */
+  :root {
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.148 0.004 228.8);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.148 0.004 228.8);
+    --primary: oklch(0.488 0.243 264.376);
+    --primary-foreground: oklch(0.97 0.014 254.604);
+    --secondary: oklch(0.967 0.001 286.375);
+    --secondary-foreground: oklch(0.21 0.006 285.885);
+    --muted: oklch(0.963 0.002 197.1);
+    --muted-foreground: oklch(0.56 0.021 213.5);
+    --accent: oklch(0.963 0.002 197.1);
+    --accent-foreground: oklch(0.218 0.008 223.9);
+    --destructive: oklch(0.577 0.245 27.325);
+    --border: oklch(0.925 0.005 214.3);
+    --input: oklch(0.925 0.005 214.3);
+    --ring: oklch(0.723 0.014 214.4);
+    --chart-1: oklch(0.872 0.007 219.6);
+    --chart-2: oklch(0.56 0.021 213.5);
+    --chart-3: oklch(0.45 0.017 213.2);
+    --chart-4: oklch(0.378 0.015 216);
+    --chart-5: oklch(0.275 0.011 216.9);
+    --radius: 0.875rem;
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.148 0.004 228.8);
+
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+
+    /* the project's --font-sans is a network font; substituted with a system stack here */
+    --font: ui-sans-serif, system-ui, "Segoe UI", "Malgun Gothic", sans-serif;
+
+    /* new: glacier palette introduced by this prototype */
+    --ice-face: #fbfeff;
+    --ice-mid: #e4f2fb;
+    --ice-deep: #cbe4f4;
+    --ice-board-top: #eef8fe;
+    --ice-board-bottom: #d5eaf7;
+  }
+
+  /* review chrome (sh-*): keep; extend product styles elsewhere */
+  * { box-sizing: border-box }
+  body {
+    margin: 0; padding: 0 0 40px;
+    background: var(--background, #f6f6f6); color: var(--foreground, #3a3a3a);
+    font-family: var(--font, system-ui, sans-serif);
+  }
+  .sh-bar {
+    position: sticky; top: 0; z-index: 999;
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    padding: 8px 12px; background: #191a1c; color: #d7d7d7;
+    font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .sh-bar b, .sh-control-label { color: #8a8f98; font-weight: 500 }
+  .sh-control { display: inline-flex; gap: 5px; align-items: center }
+  .sh-bar button {
+    border: 1px solid #3a3d42; background: none; color: inherit;
+    font: inherit; padding: 2px 9px; border-radius: 99px; cursor: pointer;
+  }
+  .sh-bar select {
+    width: 170px; border: 1px solid #3a3d42; background: #232428; color: inherit;
+    font: inherit; padding: 3px 28px 3px 9px; border-radius: 7px; cursor: pointer;
+    color-scheme: dark;
+  }
+  #sh-screen { width: 190px }
+  .sh-bar button.on { background: #d7d7d7; color: #191a1c; border-color: #d7d7d7 }
+  .sh-spacer { flex: 1 }
+  .sh-stage { max-width: 960px; margin: 0 auto; padding: 12px 16px 0 }
+  [hidden] { display: none !important }
+
+  /* viewport presets */
+  .sh-vp-390 .sh-stage {
+    max-width: 390px; background: var(--background, #f6f6f6);
+    border: 10px solid #191a1c; border-radius: 28px;
+    padding: 16px 12px; height: min(844px, calc(100dvh - 52px));
+    overflow-y: auto; margin-top: 12px;
+  }
+  .sh-vp-768 .sh-stage {
+    max-width: 768px; border: 1px solid #c4c4c4; border-radius: 12px;
+    padding: 16px; margin-top: 12px;
+  }
+
+  /* placeholders */
+  .wf-pic  { border-radius: 4px; background:
+             repeating-linear-gradient(45deg, #e9e9e9, #e9e9e9 6px, #f2f2f2 6px, #f2f2f2 12px) }
+
+  /* product styles */
+  .app { display: flex; flex-direction: column; gap: 14px; padding-bottom: 8px }
+
+  .app-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; flex-wrap: wrap;
+  }
+  .app-title { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -0.01em }
+  .app-actions { display: flex; gap: 8px; flex-wrap: wrap }
+
+  .btn {
+    font: inherit; font-size: 14px; font-weight: 500; line-height: 1;
+    padding: 9px 14px; border-radius: var(--radius-md);
+    border: 1px solid var(--border); background: var(--background);
+    color: var(--foreground); cursor: pointer;
+    transition: background .15s, border-color .15s, opacity .15s;
+    white-space: nowrap;
+  }
+  .btn:hover:not(:disabled) { background: var(--accent) }
+  .btn:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px }
+  .btn:disabled { opacity: .45; cursor: not-allowed }
+  .btn-primary {
+    background: var(--primary); border-color: var(--primary);
+    color: var(--primary-foreground);
+  }
+  .btn-primary:hover:not(:disabled) { background: oklch(0.44 0.243 264.376) }
+
+  .board-wrap {
+    position: relative; border-radius: var(--radius-xl);
+    background: linear-gradient(168deg, var(--ice-board-top), var(--ice-board-bottom));
+    border: 1px solid var(--border);
+    padding: 22px 16px 26px;
+    display: flex; justify-content: center;
+    box-shadow: inset 0 1px 0 #fff, inset 0 -14px 28px rgba(120,175,205,.16);
+    transition: box-shadow .2s;
+    user-select: none;
+  }
+  .board-wrap.warning {
+    border-color: var(--destructive);
+    box-shadow: inset 0 1px 0 #fff, inset 0 -14px 28px rgba(120,175,205,.16),
+                0 0 0 3px var(--destructive), 0 0 22px oklch(0.577 0.245 27.325 / .35);
+    animation: warn-pulse 1.1s ease-in-out infinite;
+  }
+  @keyframes warn-pulse {
+    0%, 100% { box-shadow: inset 0 1px 0 #fff, 0 0 0 3px var(--destructive), 0 0 22px oklch(0.577 0.245 27.325 / .3) }
+    50% { box-shadow: inset 0 1px 0 #fff, 0 0 0 3px var(--destructive), 0 0 34px oklch(0.577 0.245 27.325 / .55) }
+  }
+
+  .hex-grid { --hex-w: 78px; --hex-gap: 7px; display: flex; flex-direction: column }
+  .hex-row { display: flex; gap: var(--hex-gap); margin-top: calc(var(--hex-w) * -0.2) }
+  .hex-row:first-child { margin-top: 0 }
+  .hex-row.offset { margin-left: calc((var(--hex-w) + var(--hex-gap)) / 2) }
+
+  .hex {
+    position: relative; flex: none;
+    width: var(--hex-w); height: calc(var(--hex-w) * 1.1547);
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    background: linear-gradient(152deg, var(--ice-face) 0%, var(--ice-mid) 52%, var(--ice-deep) 100%);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .hex::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(210deg, rgba(255,255,255,.7) 0 20%, transparent 40%);
+    pointer-events: none;
+  }
+
+  .marble {
+    position: relative; z-index: 1;
+    width: calc(var(--hex-w) * 0.64); height: calc(var(--hex-w) * 0.64);
+    border-radius: 50%; border: 0; padding: 0; cursor: pointer;
+    font: inherit; font-size: calc(var(--hex-w) * 0.29); font-weight: 700;
+    color: #fff; text-shadow: 0 1px 2px rgba(10,20,60,.55);
+    background:
+      radial-gradient(circle at 32% 26%, #ffffff 0%, #cfe0ff 14%, #6f8bf5 48%, #3b4fd0 76%, #2233a3 100%);
+    box-shadow: 0 3px 7px rgba(24,44,92,.34), inset 0 -3px 7px rgba(0,0,0,.2);
+    display: flex; align-items: center; justify-content: center;
+    animation: marble-in .18s ease-out;
+  }
+  .marble:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px }
+  @keyframes marble-in {
+    from { transform: scale(.4); opacity: 0 }
+    to { transform: scale(1); opacity: 1 }
+  }
+
+  .overlay {
+    position: absolute; inset: 0; border-radius: var(--radius-xl);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px; text-align: center;
+  }
+  .overlay.dim { background: oklch(1 0 0 / .45) }
+
+  .help-card {
+    max-width: 430px; background: var(--card); color: var(--card-foreground);
+    border: 1px solid var(--border); border-radius: var(--radius-lg);
+    padding: 20px 22px; box-shadow: 0 8px 26px rgba(30,60,90,.13);
+    text-align: left;
+  }
+  .help-card h2 { margin: 0 0 10px; font-size: 16px; font-weight: 600 }
+  .help-card ol { margin: 0; padding-left: 18px; display: grid; gap: 7px }
+  .help-card li { font-size: 14px; line-height: 1.6 }
+  .help-tail {
+    margin: 14px 0 0; padding-top: 12px; border-top: 1px solid var(--border);
+    font-size: 13px; color: var(--muted-foreground); line-height: 1.6;
+  }
+
+  .count { font-size: 96px; font-weight: 700; color: var(--primary); letter-spacing: -0.04em; line-height: 1 }
+  .count.go { font-size: 58px }
+  .count-tick { animation: count-pop .42s ease-out }
+  @keyframes count-pop {
+    from { transform: scale(.6); opacity: .2 }
+    60% { transform: scale(1.06); opacity: 1 }
+    to { transform: scale(1); opacity: 1 }
+  }
+
+  .result-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 18px 26px;
+    box-shadow: 0 10px 30px rgba(30,60,90,.16); min-width: 250px;
+  }
+  .result-kind { margin: 0 0 6px; font-size: 13px; font-weight: 500; color: var(--muted-foreground) }
+  .result-headline { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.02em }
+  .result-headline.clear { color: var(--primary) }
+  .result-headline.over { color: var(--destructive) }
+  .result-detail { margin: 10px 0 0; font-size: 14px; color: var(--muted-foreground); line-height: 1.6 }
+
+  .app-foot {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; flex-wrap: wrap;
+    border: 1px solid var(--border); border-radius: var(--radius-lg);
+    background: var(--card); padding: 12px 16px;
+  }
+  .metric { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap }
+  .metric-label {
+    font-size: 12px; font-weight: 500; color: var(--muted-foreground);
+    padding: 3px 9px; border-radius: 99px; background: var(--muted);
+  }
+  .metric-value {
+    font-size: 24px; font-weight: 700; letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums; min-width: 92px;
+  }
+  .metric-value.idle { color: var(--muted-foreground); font-weight: 500; font-size: 18px }
+  .metric-note { font-size: 13px; color: var(--muted-foreground) }
+  .foot-actions { display: flex; gap: 8px; flex-wrap: wrap }
+
+  .toast {
+    position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%);
+    background: var(--foreground); color: var(--background);
+    font-size: 13px; padding: 8px 14px; border-radius: 99px;
+    box-shadow: 0 6px 18px rgba(0,0,0,.22); pointer-events: none;
+    opacity: 0; transition: opacity .18s, transform .18s;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px) }
+
+  .sh-vp-390 .hex-grid { --hex-w: 52px; --hex-gap: 5px }
+  .sh-vp-390 .board-wrap { padding: 16px 10px 18px }
+  .sh-vp-390 .app-title { font-size: 16px; width: 100% }
+  .sh-vp-390 .btn { padding: 8px 11px; font-size: 13px }
+  .sh-vp-390 .count { font-size: 62px }
+  .sh-vp-390 .count.go { font-size: 38px }
+  .sh-vp-390 .help-card { padding: 16px }
+  .sh-vp-390 .metric-value { min-width: 76px; font-size: 21px }
+  .sh-vp-390 .metric-note { width: 100% }
+  .sh-vp-768 .hex-grid { --hex-w: 66px }
+</style>
+
+<header class="sh-bar">
+  <b>proto</b>
+  <label class="sh-control"><span class="sh-control-label">screen</span><select id="sh-screen"></select></label>
+  <span class="sh-spacer"></span>
+  <label class="sh-control"><span class="sh-control-label">state</span><select id="sh-state"></select></label>
+  <button id="sh-vp">vp: full (m)</button>
+</header>
+
+<main class="sh-stage">
+  <section data-screen="game" data-title="게임" data-states="구슬 누적,시간 경고,클리어,종료">
+    <div class="app" data-component="new:GamePage">
+
+      <header class="app-bar" data-component="new:GameToolbar">
+        <h1 class="app-title">점심시간을 즐겁게~</h1>
+        <div class="app-actions">
+          <button class="btn btn-primary" id="btn-start" data-component="Button">게임 시작</button>
+          <button class="btn" id="btn-stop" data-component="Button">게임 종료</button>
+          <button class="btn" id="btn-help" data-component="Button">게임 설명</button>
+        </div>
+      </header>
+
+      <div class="board-wrap" id="board" data-component="new:GameBoard">
+        <div class="hex-grid" id="grid" data-component="new:HexGrid"></div>
+
+        <div class="overlay dim" id="overlay-help" data-component="new:HelpPanel">
+          <div class="help-card">
+            <h2>이렇게 하시면 됩니다</h2>
+            <ol>
+              <li>빙하 타일 위에 숫자가 적힌 구슬이 나타납니다.</li>
+              <li>1번부터 순서대로 클릭하세요. 맞게 누르면 구슬이 사라집니다.</li>
+              <li>화면의 구슬을 다 누르면 다음 단계가 바로 나옵니다. 다 못 눌러도 2초가 지나면 구슬이 더 쌓입니다.</li>
+              <li>순서를 틀리거나 빈 타일을 누르면 그 자리에서 끝납니다.</li>
+              <li>22번까지 모두 누르면 클리어입니다.</li>
+            </ol>
+            <p class="help-tail">제한 시간은 20초입니다. 15초를 넘기면 판 둘레가 붉게 변합니다. 점수는 마지막으로 맞게 누른 구슬의 숫자이고, 클리어하면 남은 시간만큼 더해집니다.</p>
+          </div>
+        </div>
+
+        <div class="overlay" id="overlay-count" data-component="new:CountdownOverlay" hidden>
+          <div class="count" id="count-value">3</div>
+        </div>
+
+        <div class="overlay dim" id="overlay-result" data-component="new:ResultPanel" hidden>
+          <div class="result-card">
+            <p class="result-kind" id="result-kind">클리어</p>
+            <p class="result-headline clear" id="result-headline">클리어!</p>
+            <p class="result-detail" id="result-detail">22번까지 모두 눌렀습니다.</p>
+          </div>
+        </div>
+
+        <div class="toast" id="toast" data-component="new:Toast"></div>
+      </div>
+
+      <footer class="app-foot" data-component="new:ScorePanel">
+        <div class="metric">
+          <span class="metric-label" id="metric-label">점수</span>
+          <span class="metric-value idle" id="metric-value">–</span>
+          <span class="metric-note" id="metric-note">게임을 시작하면 시간이 표시됩니다</span>
+        </div>
+        <div class="foot-actions">
+          <button class="btn" id="btn-capture" data-component="Button" disabled>결과 캡쳐</button>
+          <button class="btn" id="btn-copy" data-component="Button" disabled>결과 복사</button>
+        </div>
+      </footer>
+
+    </div>
+  </section>
+</main>
+
+<script>
+  const stage = document.querySelector('.sh-stage');
+  const screens = [...stage.querySelectorAll('[data-screen]')];
+  const screenSelect = document.getElementById('sh-screen');
+  const stateSelect = document.getElementById('sh-state');
+  const vpBtn = document.getElementById('sh-vp');
+  let current = null;
+  let currentStates = [];
+
+  screens.forEach(s => {
+    const option = document.createElement('option');
+    option.textContent = s.dataset.title || s.dataset.screen;
+    option.value = s.dataset.screen;
+    screenSelect.append(option);
+  });
+  screenSelect.onchange = () => show(screenSelect.value);
+
+  function show(slug) {
+    current = screens.find(s => s.dataset.screen === slug) || screens[0];
+    screens.forEach(s => s.hidden = s !== current);
+    screenSelect.value = current.dataset.screen;
+    history.replaceState(null, '', '#' + current.dataset.screen);
+    buildStates();
+  }
+
+  function buildStates() {
+    const declared = (current.dataset.states || '').split(',').map(x => x.trim()).filter(Boolean);
+    currentStates = ['Default', ...declared.filter(name => name !== 'Default')];
+    stateSelect.innerHTML = '';
+    currentStates.forEach(name => {
+      const option = document.createElement('option');
+      option.textContent = name;
+      option.value = name;
+      stateSelect.append(option);
+    });
+    applyState('Default');
+  }
+
+  function applyState(name) {
+    const active = currentStates.includes(name) ? name : 'Default';
+    current.querySelectorAll('[data-when]').forEach(el => {
+      el.hidden = !el.dataset.when.split(',').map(x => x.trim()).includes(active);
+    });
+    stateSelect.value = active;
+  }
+  stateSelect.onchange = () => applyState(stateSelect.value);
+
+  window.prototypeShell = {
+    showScreen: show,
+    setState: applyState,
+    getScreen: () => current?.dataset.screen,
+    getState: () => stateSelect.value
+  };
+
+  const VPS = ['full', '390', '768'];
+  let vp = VPS.find(v => document.body.classList.contains('sh-vp-' + v)) || 'full';
+  function applyVp() {
+    VPS.forEach(v => document.body.classList.toggle('sh-vp-' + v, v === vp && v !== 'full'));
+    vpBtn.textContent = 'vp: ' + vp + ' (m)';
+    vpBtn.classList.toggle('on', vp !== 'full');
+  }
+  vpBtn.onclick = () => { vp = VPS[(VPS.indexOf(vp) + 1) % VPS.length]; applyVp(); };
+  applyVp();
+
+  addEventListener('keydown', e => {
+    if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+    const i = screens.indexOf(current);
+    if (e.key === 'ArrowRight') show(screens[(i + 1) % screens.length].dataset.screen);
+    if (e.key === 'ArrowLeft') show(screens[(i - 1 + screens.length) % screens.length].dataset.screen);
+    if (e.key === 'm') vpBtn.click();
+  });
+
+  addEventListener('hashchange', () => show(location.hash.slice(1)));
+  show(location.hash.slice(1));
+</script>
+
+<script>
+  /* product behavior */
+  const ROWS = 5, COLS = 5;
+  const STAGE_COUNTS = [3, 4, 5, 5, 5];
+  const TOTAL_MARBLES = STAGE_COUNTS.reduce((a, b) => a + b, 0);
+  const LIMIT = 20, WARN_AT = 15, STAGE_MS = 2000;
+
+  const grid = document.getElementById('grid');
+  const board = document.getElementById('board');
+  const overlayHelp = document.getElementById('overlay-help');
+  const overlayCount = document.getElementById('overlay-count');
+  const overlayResult = document.getElementById('overlay-result');
+  const countValue = document.getElementById('count-value');
+  const resultKind = document.getElementById('result-kind');
+  const resultHeadline = document.getElementById('result-headline');
+  const resultDetail = document.getElementById('result-detail');
+  const metricLabel = document.getElementById('metric-label');
+  const metricValue = document.getElementById('metric-value');
+  const metricNote = document.getElementById('metric-note');
+  const toast = document.getElementById('toast');
+  const btnStart = document.getElementById('btn-start');
+  const btnStop = document.getElementById('btn-stop');
+  const btnHelp = document.getElementById('btn-help');
+  const btnCapture = document.getElementById('btn-capture');
+  const btnCopy = document.getElementById('btn-copy');
+
+  const tiles = [];
+  for (let r = 0; r < ROWS; r++) {
+    const row = document.createElement('div');
+    row.className = 'hex-row' + (r % 2 ? ' offset' : '');
+    for (let c = 0; c < COLS; c++) {
+      const tile = document.createElement('div');
+      tile.className = 'hex';
+      tile.dataset.component = 'new:HexTile';
+      tile.dataset.index = String(r * COLS + c);
+      row.append(tile);
+      tiles.push(tile);
+    }
+    grid.append(row);
+  }
+
+  let phase = 'idle';
+  let stageIndex = 0;
+  let nextNumber = 1;
+  let lastClicked = 0;
+  let elapsed = 0;
+  let tickTimer = null, stageTimer = null, countTimer = null;
+
+  function clearMarbles() {
+    grid.querySelectorAll('.marble').forEach(m => m.remove());
+  }
+
+  function activeMarbles() { return grid.querySelectorAll('.marble').length }
+
+  function addMarbles(startNumber, count) {
+    const free = tiles.filter(t => !t.querySelector('.marble'));
+    for (let i = 0; i < count && free.length; i++) {
+      const pick = free.splice(Math.floor(Math.random() * free.length), 1)[0];
+      const marble = document.createElement('button');
+      marble.type = 'button';
+      marble.className = 'marble';
+      marble.dataset.component = 'new:Marble';
+      marble.dataset.number = String(startNumber + i);
+      marble.textContent = String(startNumber + i);
+      pick.append(marble);
+    }
+  }
+
+  function spawnStage() {
+    if (stageIndex >= STAGE_COUNTS.length) return;
+    const highest = [...grid.querySelectorAll('.marble')]
+      .reduce((max, m) => Math.max(max, Number(m.dataset.number)), nextNumber - 1);
+    addMarbles(highest + 1, STAGE_COUNTS[stageIndex]);
+    stageIndex++;
+    clearTimeout(stageTimer);
+    if (stageIndex < STAGE_COUNTS.length) stageTimer = setTimeout(spawnStage, STAGE_MS);
+  }
+
+  function setOverlay(which) {
+    overlayHelp.hidden = which !== 'help';
+    overlayCount.hidden = which !== 'count';
+    overlayResult.hidden = which !== 'result';
+  }
+
+  function updateControls() {
+    const running = phase === 'countdown' || phase === 'playing';
+    btnStart.disabled = running;
+    btnHelp.disabled = running;
+    btnStop.disabled = !running;
+    btnCapture.disabled = phase !== 'result';
+    btnCopy.disabled = phase !== 'result';
+  }
+
+  function renderTime() {
+    metricLabel.textContent = '시간';
+    metricValue.classList.remove('idle');
+    metricValue.textContent = elapsed.toFixed(1) + '초';
+    metricNote.textContent = '20초가 되면 끝납니다';
+  }
+
+  function renderScore(score, note) {
+    metricLabel.textContent = '점수';
+    metricValue.classList.remove('idle');
+    metricValue.textContent = score + '점';
+    metricNote.textContent = note;
+  }
+
+  function renderIdle() {
+    metricLabel.textContent = '점수';
+    metricValue.classList.add('idle');
+    metricValue.textContent = '–';
+    metricNote.textContent = '게임을 시작하면 시간이 표시됩니다';
+  }
+
+  let toastTimer = null;
+  function showToast(text) {
+    toast.textContent = text;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 1800);
+  }
+
+  function stopTimers() {
+    clearInterval(tickTimer); clearTimeout(stageTimer); clearTimeout(countTimer);
+    tickTimer = null; stageTimer = null; countTimer = null;
+  }
+
+  function tick() {
+    elapsed = Number((elapsed + 0.1).toFixed(1));
+    board.classList.toggle('warning', elapsed > WARN_AT);
+    renderTime();
+    if (elapsed >= LIMIT) finish('timeout');
+  }
+
+  function finish(reason) {
+    stopTimers();
+    phase = 'result';
+    board.classList.remove('warning');
+    const cleared = reason === 'clear';
+    const remain = Math.max(0, Math.floor(LIMIT - elapsed));
+    const score = lastClicked + (cleared ? remain : 0);
+
+    resultKind.textContent = cleared ? '클리어' : '종료';
+    resultHeadline.textContent = cleared ? '클리어!' : '게임 종료';
+    resultHeadline.className = 'result-headline ' + (cleared ? 'clear' : 'over');
+    resultDetail.textContent = cleared
+      ? '22번까지 모두 눌렀습니다. 남은 시간 ' + remain + '초가 더해졌습니다.'
+      : reason === 'timeout' ? '20초가 지났습니다.'
+      : reason === 'stopped' ? '게임을 중단했습니다.'
+      : '순서에 맞지 않는 곳을 눌렀습니다.';
+
+    renderScore(score, cleared
+      ? '구슬 ' + lastClicked + ' + 남은 시간 ' + remain
+      : '마지막으로 맞게 누른 구슬: ' + lastClicked);
+
+    setOverlay('result');
+    updateControls();
+    prototypeShell.setState(cleared ? '클리어' : '종료');
+  }
+
+  function beginPlay() {
+    phase = 'playing';
+    setOverlay(null);
+    clearMarbles();
+    board.classList.remove('warning');
+    elapsed = 0; stageIndex = 0; nextNumber = 1; lastClicked = 0;
+    renderTime();
+    updateControls();
+    spawnStage();
+    tickTimer = setInterval(tick, 100);
+  }
+
+  function startGame() {
+    stopTimers();
+    prototypeShell.setState('Default');
+    clearMarbles();
+    board.classList.remove('warning');
+    phase = 'countdown';
+    updateControls();
+    setOverlay('count');
+    renderIdle();
+    const steps = ['3', '2', '1', '시작'];
+    let i = 0;
+    const step = () => {
+      const label = steps[i];
+      countValue.textContent = label;
+      countValue.className = 'count' + (label === '시작' ? ' go' : '');
+      void countValue.offsetWidth;
+      countValue.className = 'count' + (label === '시작' ? ' go' : '') + ' count-tick';
+      i++;
+      countTimer = setTimeout(i < steps.length ? step : beginPlay, 700);
+    };
+    step();
+  }
+
+  function resetToHelp() {
+    stopTimers();
+    phase = 'idle';
+    clearMarbles();
+    board.classList.remove('warning');
+    setOverlay('help');
+    renderIdle();
+    updateControls();
+    prototypeShell.setState('Default');
+  }
+
+  btnStart.onclick = startGame;
+  btnHelp.onclick = resetToHelp;
+
+  btnStop.onclick = () => {
+    if (phase === 'countdown') { resetToHelp(); return; }
+    if (phase === 'playing') finish('stopped');
+  };
+
+  board.onclick = e => {
+    if (phase !== 'playing') return;
+    const marble = e.target.closest('.marble');
+    if (!marble) { finish('miss'); return; }
+    const n = Number(marble.dataset.number);
+    if (n !== nextNumber) { finish('miss'); return; }
+    marble.remove();
+    lastClicked = n;
+    nextNumber++;
+    if (nextNumber > TOTAL_MARBLES) { finish('clear'); return; }
+    if (activeMarbles() === 0) { clearTimeout(stageTimer); spawnStage(); }
+  };
+
+  btnCapture.onclick = () => showToast('결과 화면을 이미지 파일로 저장했습니다');
+  btnCopy.onclick = () => showToast('결과 이미지를 클립보드에 복사했습니다');
+
+  function preset(name) {
+    stopTimers();
+    clearMarbles();
+    board.classList.remove('warning');
+
+    if (name === '구슬 누적') {
+      phase = 'playing'; setOverlay(null);
+      elapsed = 7.4; nextNumber = 5; lastClicked = 4; stageIndex = 3;
+      addMarbles(5, 8);
+      renderTime(); updateControls();
+      return;
+    }
+    if (name === '시간 경고') {
+      phase = 'playing'; setOverlay(null);
+      elapsed = 16.8; nextNumber = 14; lastClicked = 13; stageIndex = 5;
+      addMarbles(14, 9);
+      board.classList.add('warning');
+      renderTime(); updateControls();
+      return;
+    }
+    if (name === '클리어') {
+      phase = 'result'; elapsed = 12.3; lastClicked = 22; nextNumber = 23;
+      resultKind.textContent = '클리어';
+      resultHeadline.textContent = '클리어!';
+      resultHeadline.className = 'result-headline clear';
+      resultDetail.textContent = '22번까지 모두 눌렀습니다. 남은 시간 7초가 더해졌습니다.';
+      renderScore(29, '구슬 22 + 남은 시간 7');
+      setOverlay('result'); updateControls();
+      return;
+    }
+    if (name === '종료') {
+      phase = 'result'; elapsed = 9.6; lastClicked = 9; nextNumber = 10;
+      addMarbles(10, 6);
+      resultKind.textContent = '종료';
+      resultHeadline.textContent = '게임 종료';
+      resultHeadline.className = 'result-headline over';
+      resultDetail.textContent = '순서에 맞지 않는 곳을 눌렀습니다.';
+      renderScore(9, '마지막으로 맞게 누른 구슬: 9');
+      setOverlay('result'); updateControls();
+      return;
+    }
+    phase = 'idle'; setOverlay('help'); renderIdle(); updateControls();
+  }
+
+  stateSelect.addEventListener('change', () => preset(stateSelect.value));
+  preset('Default');
+</script>
