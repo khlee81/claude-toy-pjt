@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -22,6 +22,10 @@ type HexBoardProps = {
   /** 판이 붐빌 때 눈에 띄게 표시할 구슬 번호. 없으면 아무 구슬도 강조하지 않는다. */
   hintedNumber: number | null;
   warning: boolean;
+  /** 어려움 모드에서 판을 시각적으로 돌리는 누적 각도(도). 0이면 돌지 않은 것이다. */
+  rotationDeg: number;
+  /** 회전이 홀수 번째 90도만큼 걸려, 가로·세로가 서로 맞바뀐 상태인지. */
+  rotationAxisSwapped: boolean;
   onMarbleClick: (marbleNumber: number) => void;
   onEmptyClick: () => void;
   children?: ReactNode;
@@ -33,6 +37,8 @@ export function HexBoard({
   interactive,
   hintedNumber,
   warning,
+  rotationDeg,
+  rotationAxisSwapped,
   onMarbleClick,
   onLuckyClick,
   onEmptyClick,
@@ -47,6 +53,13 @@ export function HexBoard({
       className={cn(styles.board, warning && styles.warning)}
       onClick={interactive ? onEmptyClick : undefined}
       data-testid="game-board"
+      data-rotation={rotationDeg || undefined}
+      data-axis-swapped={rotationAxisSwapped || undefined}
+      style={
+        rotationDeg
+          ? ({ "--rotate": `${rotationDeg}deg` } as CSSProperties)
+          : undefined
+      }
     >
       <div className={styles.grid}>
         {Array.from({ length: BOARD_ROWS }, (_, row) => (

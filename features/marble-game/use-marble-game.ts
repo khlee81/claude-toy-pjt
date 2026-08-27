@@ -5,8 +5,9 @@ import { useCallback, useEffect, useReducer, useRef } from "react";
 import {
   COUNTDOWN_STEPS,
   COUNTDOWN_STEP_MS,
+  HARD_ROTATE_TRIGGER_STAGE_INDEX,
   HINT_AFTER_MARBLE_COUNT,
-  LUCKY_BONUS,
+  ROTATION_DEGREES,
   STAGE_COUNT,
   STAGE_INTERVAL_MS,
   TIME_LIMIT_MS,
@@ -16,9 +17,13 @@ import {
   createLuckyMarble,
   createStageMarbles,
   pickLuckyStageIndex,
+  pickRotateClickThreshold,
+  pickRotationDirection,
   type GameEnding,
+  type GameMode,
   type LuckyMarble,
   type Marble,
+  type RotationDirection,
 } from "./game-rules";
 
 export type GamePhase = "idle" | "countdown" | "playing" | "result";
@@ -37,10 +42,25 @@ type State = {
   lastClickedNumber: number;
   elapsedMs: number;
   ending: GameEnding | null;
+  mode: GameMode;
+  /**
+   * 어려움 모드에서만 쓰인다. null이면 아직 2단계가 시작되지 않아 클릭 수를 세지
+   * 않는다. 2단계가 시작되면 값이 생기고, 회전이 일어날 때마다 다음 회전까지
+   * 필요한 수로 다시 뽑혀 계속 이어진다.
+   */
+  hardRotateThreshold: number | null;
+  /** 마지막 회전(또는 2단계 시작) 이후로 맞게 클릭한 수. */
+  hardClicksSinceRotation: number;
+  /** 지금까지 누적된 회전 각도(도). 회전이 일어날 때마다 ±90씩 더해진다. */
+  rotationDeg: number;
+  /** 가장 최근 회전의 방향. 알림 문구에만 쓰고, 누적 각도 계산에는 쓰지 않는다. */
+  lastRotationDirection: RotationDirection | null;
+  /** 회전이 일어난 횟수. 매번 알림을 한 번씩 띄우기 위한 신호로만 쓴다. */
+  rotationEventCount: number;
 };
 
 type Action =
-  | { type: "start" }
+  | { type: "start"; mode: GameMode }
   | { type: "countdown-next" }
   | { type: "begin-play" }
   | { type: "tick"; elapsedMs: number }
@@ -63,6 +83,12 @@ const initialState: State = {
   lastClickedNumber: 0,
   elapsedMs: 0,
   ending: null,
+  mode: "easy",
+  hardRotateThreshold: null,
+  hardClicksSinceRotation: 0,
+  rotationDeg: 0,
+  lastRotationDirection: null,
+  rotationEventCount: 0,
 };
 
 function endGame(state: State, ending: GameEnding, elapsedMs: number): State {
@@ -89,11 +115,22 @@ function addNextStage(state: State): State {
     ? createLuckyMarble(marbles.map((marble) => marble.tileIndex))
     : state.lucky;
 
+  // 어려움 모드에서 2단계 구슬이 나오는 순간, 클릭 수 세기를 시작한다. 이후로는
+  // 회전이 일어날 때마다(click-marble에서) 다음 회전까지 필요한 수를 새로 뽑는다.
+  const armRotation =
+    state.mode === "hard" &&
+    state.stageIndex === HARD_ROTATE_TRIGGER_STAGE_INDEX &&
+    state.hardRotateThreshold === null;
+
   return {
     ...state,
     marbles,
     lucky,
     stageIndex: state.stageIndex + 1,
+    hardRotateThreshold: armRotation
+      ? pickRotateClickThreshold()
+      : state.hardRotateThreshold,
+    hardClicksSinceRotation: armRotation ? 0 : state.hardClicksSinceRotation,
   };
 }
 
@@ -103,6 +140,7 @@ function reducer(state: State, action: Action): State {
       return {
         ...initialState,
         phase: "countdown",
+        mode: action.mode,
         luckyStageIndex: pickLuckyStageIndex(),
       };
 
@@ -113,6 +151,7 @@ function reducer(state: State, action: Action): State {
       return addNextStage({
         ...initialState,
         phase: "playing",
+        mode: state.mode,
         luckyStageIndex: state.luckyStageIndex,
       });
 
@@ -137,12 +176,34 @@ function reducer(state: State, action: Action): State {
       const remaining = state.marbles.filter(
         (marble) => marble.number !== action.number
       );
+
+      // 2단계가 시작된 뒤로 맞게 누른 수를 세고, 정해진 수(2 또는 3)에 닿을 때마다
+      // 회전을 한 번 더 적용한 뒤 다음 회전까지 필요한 수를 새로 뽑는다. 게임이
+      // 끝날 때까지 계속 반복된다.
+      const shouldCount = state.hardRotateThreshold !== null;
+      const clicksSoFar = shouldCount
+        ? state.hardClicksSinceRotation + 1
+        : state.hardClicksSinceRotation;
+      const rotatesNow = shouldCount && clicksSoFar >= state.hardRotateThreshold!;
+      const rotationDirection = rotatesNow ? pickRotationDirection() : null;
+
       const advanced: State = {
         ...state,
         marbles: remaining,
         lastClickedNumber: action.number,
         nextNumber: state.nextNumber + 1,
         elapsedMs: action.elapsedMs,
+        hardClicksSinceRotation: rotatesNow ? 0 : clicksSoFar,
+        hardRotateThreshold: rotatesNow
+          ? pickRotateClickThreshold()
+          : state.hardRotateThreshold,
+        rotationDeg: rotationDirection
+          ? state.rotationDeg + ROTATION_DEGREES[rotationDirection]
+          : state.rotationDeg,
+        lastRotationDirection: rotationDirection ?? state.lastRotationDirection,
+        rotationEventCount: rotatesNow
+          ? state.rotationEventCount + 1
+          : state.rotationEventCount,
       };
 
       if (advanced.nextNumber > TOTAL_MARBLE_COUNT) {
@@ -152,7 +213,7 @@ function reducer(state: State, action: Action): State {
       return remaining.length === 0 ? addNextStage(advanced) : advanced;
     }
 
-    // 행운 구슬은 순서 판정에 끼어들지 않는다. 다음 순번도 그대로 둔다.
+    // 행운 구슬은 순서 판정에 끼어들지 않는다. 다음 순번도, 회전 클릭 수도 그대로 둔다.
     case "click-lucky":
       if (state.phase !== "playing" || state.lucky === null) return state;
       return {
@@ -231,9 +292,9 @@ export function useMarbleGame() {
     return () => window.clearTimeout(timer);
   }, [state.phase, state.stageIndex]);
 
-  const start = useCallback(() => {
+  const start = useCallback((mode: GameMode = "easy") => {
     startedAtRef.current = 0;
-    dispatch({ type: "start" });
+    dispatch({ type: "start", mode });
   }, []);
 
   const stop = useCallback(() => {
@@ -262,14 +323,27 @@ export function useMarbleGame() {
 
   const cleared = state.ending === "clear";
   const visibleMarbleCount = state.marbles.length + (state.lucky ? 1 : 0);
+  const scoreBreakdown = calculateScore({
+    lastClickedNumber: state.lastClickedNumber,
+    cleared,
+    elapsedMs: state.elapsedMs,
+    luckyTaken: state.luckyTaken,
+    mode: state.mode,
+  });
 
   return {
     phase: state.phase,
+    mode: state.mode,
     countdownLabel: COUNTDOWN_STEPS[state.countdownStep],
     marbles: state.marbles,
     lucky: state.lucky,
     luckyTaken: state.luckyTaken,
-    luckyBonus: state.luckyTaken ? LUCKY_BONUS : 0,
+    /** 판의 시각적 회전 각도(도, 누적값). 0이면 돌지 않은 것이다. */
+    rotationDeg: state.rotationDeg,
+    /** 90도 홀수 배(90, 270, -90...)일 때만 참이다. 이때 가로·세로가 서로 맞바뀐다. */
+    rotationAxisSwapped: Math.abs(state.rotationDeg / 90) % 2 === 1,
+    lastRotationDirection: state.lastRotationDirection,
+    rotationEventCount: state.rotationEventCount,
     nextNumber: state.nextNumber,
     lastClickedNumber: state.lastClickedNumber,
     elapsedMs: state.elapsedMs,
@@ -281,12 +355,11 @@ export function useMarbleGame() {
         ? state.nextNumber
         : null,
     warning: state.phase === "playing" && state.elapsedMs > WARN_AFTER_MS,
-    score: calculateScore({
-      lastClickedNumber: state.lastClickedNumber,
-      cleared,
-      elapsedMs: state.elapsedMs,
-      luckyTaken: state.luckyTaken,
-    }),
+    score: scoreBreakdown.total,
+    scoreBase: scoreBreakdown.base,
+    scoreTimeBonus: scoreBreakdown.timeBonus,
+    scoreLuckyBonus: scoreBreakdown.luckyBonus,
+    /** 배수를 적용하기 전의 순수 남은 초. 점수 문구에 "N × 3"처럼 풀어 보여줄 때 쓴다. */
     remainingBonusSeconds: Math.max(
       0,
       Math.floor((TIME_LIMIT_MS - state.elapsedMs) / 1000)

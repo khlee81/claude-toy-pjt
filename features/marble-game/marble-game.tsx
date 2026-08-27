@@ -6,11 +6,13 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 import {
+  HARD_SCORE_MULTIPLIER,
   LUCKY_BONUS,
   STAGE_COUNT,
   TIME_LIMIT_MS,
   TOTAL_MARBLE_COUNT,
   WARN_AFTER_MS,
+  type GameMode,
 } from "./game-rules";
 import { HexBoard } from "./hex-board";
 import styles from "./marble-game.module.css";
@@ -30,18 +32,16 @@ function formatSeconds(elapsedMs: number) {
 
 export function MarbleGame() {
   const game = useMarbleGame();
+  const [mode, setMode] = useState<GameMode>("easy");
   const [notice, setNotice] = useState<string | null>(null);
   const noticeTimerRef = useRef<number | undefined>(undefined);
+  const lastRotationEventCountRef = useRef(0);
 
   useEffect(() => () => window.clearTimeout(noticeTimerRef.current), []);
 
   const running = game.phase === "countdown" || game.phase === "playing";
   const finished = game.phase === "result";
-
-  const luckyNote = game.luckyTaken ? ` + 행운 ${game.luckyBonus}` : "";
-  const scoreNote = game.cleared
-    ? `구슬 ${game.lastClickedNumber} + 남은 시간 ${game.remainingBonusSeconds}${luckyNote}`
-    : `마지막으로 맞게 누른 구슬: ${game.lastClickedNumber}${luckyNote}`;
+  const hard = game.mode === "hard";
 
   // 안내를 연달아 띄우면 앞 타이머가 뒤 메시지를 일찍 지우므로 매번 갈아 끼운다.
   function showNotice(message: string) {
@@ -49,6 +49,30 @@ export function MarbleGame() {
     window.clearTimeout(noticeTimerRef.current);
     noticeTimerRef.current = window.setTimeout(() => setNotice(null), 2200);
   }
+
+  // 회전이 걸릴 때마다 한 번씩 알려 준다. 새 판이 시작되며 0으로 초기화된 것과,
+  // 실제로 방금 회전이 걸린 것을 ref로 구분한다. 언제, 몇 번, 어느 쪽으로 돌지는
+  // 미리 알리지 않는다. 안내 표시는 다른 타이머 기반 effect들과 같은 방식으로
+  // setTimeout 콜백 안에서 띄운다.
+  useEffect(() => {
+    if (game.rotationEventCount === lastRotationEventCountRef.current) return;
+    lastRotationEventCountRef.current = game.rotationEventCount;
+    if (game.rotationEventCount === 0) return;
+
+    const direction = game.lastRotationDirection;
+    const timer = window.setTimeout(() => {
+      showNotice(`타일이 ${direction === "right" ? "오른쪽" : "왼쪽"}으로 돌았습니다!`);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [game.rotationEventCount, game.lastRotationDirection]);
+
+  const multiplierSuffix = hard ? ` × ${HARD_SCORE_MULTIPLIER}` : "";
+  const luckyNote = game.luckyTaken
+    ? ` + 행운 ${game.scoreLuckyBonus}`
+    : "";
+  const scoreNote = game.cleared
+    ? `구슬 ${game.lastClickedNumber}${multiplierSuffix} + 남은 시간 ${game.remainingBonusSeconds}${multiplierSuffix}${luckyNote}`
+    : `마지막으로 맞게 누른 구슬: ${game.lastClickedNumber}${multiplierSuffix}${luckyNote}`;
 
   function buildResultImage() {
     return renderResultImage({
@@ -84,8 +108,8 @@ export function MarbleGame() {
         <h1 className="text-lg font-semibold tracking-tight sm:text-xl">
           점심시간을 즐겁게~
         </h1>
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={game.start} disabled={running}>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button onClick={() => game.start(mode)} disabled={running}>
             게임 시작
           </Button>
           <Button variant="outline" onClick={game.stop} disabled={!running}>
@@ -94,6 +118,19 @@ export function MarbleGame() {
           <Button variant="outline" onClick={game.showHelp} disabled={running}>
             게임 설명
           </Button>
+          <label className="flex items-center gap-1.5 text-sm">
+            <span className="text-muted-foreground">난이도</span>
+            <select
+              aria-label="난이도"
+              className="h-9 rounded-[var(--radius-md)] border border-input bg-background px-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-45"
+              value={mode}
+              disabled={running}
+              onChange={(event) => setMode(event.target.value as GameMode)}
+            >
+              <option value="easy">쉬움</option>
+              <option value="hard">어려움</option>
+            </select>
+          </label>
         </div>
       </header>
 
@@ -103,6 +140,8 @@ export function MarbleGame() {
         interactive={game.phase === "playing"}
         hintedNumber={game.hintedNumber}
         warning={game.warning}
+        rotationDeg={game.rotationDeg}
+        rotationAxisSwapped={game.rotationAxisSwapped}
         onMarbleClick={game.clickMarble}
         onLuckyClick={game.clickLucky}
         onEmptyClick={game.clickEmpty}
@@ -160,6 +199,9 @@ export function MarbleGame() {
                 제한 시간은 {TIME_LIMIT_SECONDS}초입니다. {WARN_AFTER_SECONDS}
                 초를 넘기면 판 둘레가 붉게 변합니다. 점수는 마지막으로 맞게 누른
                 구슬의 숫자이고, 클리어하면 남은 시간만큼 더해집니다.
+                {mode === "hard"
+                  ? ` 어려움 모드에서는 이 점수가 모두 ${HARD_SCORE_MULTIPLIER}배가 됩니다.`
+                  : ""}
               </p>
             </div>
           </div>
@@ -195,7 +237,7 @@ export function MarbleGame() {
               </p>
               <p className="mt-2.5 text-sm leading-relaxed text-muted-foreground">
                 {game.ending === "clear"
-                  ? `${TOTAL_MARBLE_COUNT}번까지 모두 눌렀습니다. 남은 시간 ${game.remainingBonusSeconds}초가 더해졌습니다.`
+                  ? `${TOTAL_MARBLE_COUNT}번까지 모두 눌렀습니다. 점수에 ${game.scoreTimeBonus}점이 더해졌습니다.`
                   : game.ending === "timeout"
                     ? `${TIME_LIMIT_SECONDS}초가 지났습니다.`
                     : game.ending === "stopped"
