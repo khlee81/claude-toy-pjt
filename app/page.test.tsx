@@ -7,7 +7,7 @@ test("처음 열면 게임 설명이 보이고 결과 버튼은 눌리지 않는
   render(<Home />);
 
   expect(
-    screen.getByRole("heading", { level: 1, name: "점심시간을 즐겁게~" })
+    screen.getByRole("heading", { level: 1, name: "오늘도 구슬에 털림💀" })
   ).toBeInTheDocument();
   expect(
     screen.getByRole("heading", { level: 2, name: /이렇게 하시면 됩니다/ })

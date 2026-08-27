@@ -107,7 +107,7 @@ export function MarbleGame() {
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-3.5 px-4 py-6 sm:gap-4 sm:py-10">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-lg font-semibold tracking-tight sm:text-xl">
-          점심시간을 즐겁게~
+          오늘도 구슬에 털림💀
         </h1>
         <div className="flex flex-wrap items-center gap-2">
           <Button onClick={() => game.start(mode)} disabled={running}>

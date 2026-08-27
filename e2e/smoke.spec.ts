@@ -5,9 +5,9 @@ import { expect, test } from "@playwright/test";
 test("게임 화면이 열리고 설명이 먼저 보인다", async ({ page }) => {
   await page.goto("/");
 
-  await expect(page).toHaveTitle("점심시간을 즐겁게~");
+  await expect(page).toHaveTitle("오늘도 구슬에 털림💀");
   await expect(page.getByRole("heading", { level: 1 })).toContainText(
-    "점심시간을 즐겁게~",
+    "오늘도 구슬에 털림💀",
   );
   await expect(
     page.getByRole("heading", { level: 2, name: "이렇게 하시면 됩니다" }),

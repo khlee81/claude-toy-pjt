@@ -170,7 +170,7 @@ export function renderResultImage({
   context.font = `600 20px ${FONT_STACK}`;
   context.textAlign = "left";
   context.textBaseline = "middle";
-  context.fillText("점심시간을 즐겁게~", BOARD_PADDING, HEADER_HEIGHT / 2 + 4);
+  context.fillText("오늘도 구슬에 털림💀", BOARD_PADDING, HEADER_HEIGHT / 2 + 4);
 
   const boardTop = HEADER_HEIGHT;
   const boardHeight = GRID_HEIGHT + BOARD_PADDING * 2;

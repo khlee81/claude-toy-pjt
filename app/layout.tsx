@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "점심시간을 즐겁게~",
+  title: "오늘도 구슬에 털림💀",
   description:
     "빙하 타일 위 숫자 구슬을 순서대로 눌러 20초 안에 끝내는 캐주얼 게임",
 };
