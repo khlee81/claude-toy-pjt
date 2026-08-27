@@ -19,6 +19,12 @@ export const TOTAL_MARBLE_COUNT = STAGE_MARBLE_COUNTS.reduce(
 /** 화면의 구슬이 이 수를 넘으면 다음에 눌러야 할 구슬을 표시해 준다. */
 export const HINT_AFTER_MARBLE_COUNT = 5;
 
+/**
+ * 화면의 구슬(행운 구슬 포함)이 한 번이라도 이 수에 닿으면, 그 판이 끝날
+ * 때까지 놀림 캐릭터가 계속 나타난다. 다시 줄어들어도 사라지지 않는다.
+ */
+export const MASCOT_TRIGGER_MARBLE_COUNT = 10;
+
 /** 숫자가 없는 행운 구슬. 순서와 무관하게 누를 수 있다. */
 export type LuckyMarble = {
   tileIndex: number;

@@ -343,3 +343,40 @@ test("어려움 모드는 구슬 점수와 남은 시간 보너스가 3배다", 
   await expect(page.getByText("3점")).toBeVisible();
   await expect(page.getByText(/마지막으로 맞게 누른 구슬: 1 × 3/)).toBeVisible();
 });
+
+test("구슬이 3개뿐일 때는 놀림 캐릭터가 나오지 않는다", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "게임 시작" }).click();
+
+  await expect(page.getByRole("button", { name: "구슬 1", exact: true })).toBeVisible({
+    timeout: 10_000,
+  });
+  await expect(page.locator('[class*="tauntMascot"]')).toHaveCount(0);
+});
+
+test("구슬이 10개 이상 되면 왼쪽 위에 놀림 캐릭터가 나타나고, 말풍선이 2초마다 바뀐다", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "게임 시작" }).click();
+
+  // 아무것도 누르지 않고 두면 3단계까지 강제로 쌓여 구슬이 12개가 된다(10 이상).
+  await expect(page.getByRole("button", { name: "구슬 10", exact: true })).toBeVisible({
+    timeout: 15_000,
+  });
+
+  const mascot = page.locator('[class*="tauntMascot"]');
+  await expect(mascot).toBeVisible();
+
+  const bubble = page.locator('[class*="tauntBubble"]');
+  const firstPhrase = await bubble.innerText();
+  await expect(bubble).not.toHaveText(firstPhrase, { timeout: 3_000 });
+
+  // 구슬을 눌러 10개 밑으로 줄어도 한 번 나타난 캐릭터는 사라지지 않는다.
+  await page.getByRole("button", { name: "구슬 1", exact: true }).click();
+  await expect(mascot).toBeVisible();
+
+  // 게임이 끝나면 사라진다.
+  await page.getByRole("button", { name: "게임 종료" }).click();
+  await expect(mascot).toHaveCount(0);
+});

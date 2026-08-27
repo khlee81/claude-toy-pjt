@@ -7,6 +7,7 @@ import {
   COUNTDOWN_STEP_MS,
   HARD_ROTATE_TRIGGER_STAGE_INDEX,
   HINT_AFTER_MARBLE_COUNT,
+  MASCOT_TRIGGER_MARBLE_COUNT,
   ROTATION_DEGREES,
   STAGE_COUNT,
   STAGE_INTERVAL_MS,
@@ -57,6 +58,8 @@ type State = {
   lastRotationDirection: RotationDirection | null;
   /** 회전이 일어난 횟수. 매번 알림을 한 번씩 띄우기 위한 신호로만 쓴다. */
   rotationEventCount: number;
+  /** 화면의 구슬이 한 번이라도 MASCOT_TRIGGER_MARBLE_COUNT에 닿았는지. 한 번 켜지면 그 판이 끝날 때까지 꺼지지 않는다. */
+  mascotTriggered: boolean;
 };
 
 type Action =
@@ -89,6 +92,7 @@ const initialState: State = {
   rotationDeg: 0,
   lastRotationDirection: null,
   rotationEventCount: 0,
+  mascotTriggered: false,
 };
 
 function endGame(state: State, ending: GameEnding, elapsedMs: number): State {
@@ -115,6 +119,12 @@ function addNextStage(state: State): State {
     ? createLuckyMarble(marbles.map((marble) => marble.tileIndex))
     : state.lucky;
 
+  // 구슬이 이번에 처음 문턱을 넘었으면 놀림 캐릭터를 켠다. 이미 켜져 있으면
+  // 그대로 두고, 나중에 구슬 수가 줄어도 다시 끄지 않는다.
+  const visibleCount = marbles.length + (lucky ? 1 : 0);
+  const mascotTriggered =
+    state.mascotTriggered || visibleCount >= MASCOT_TRIGGER_MARBLE_COUNT;
+
   // 어려움 모드에서 2단계 구슬이 나오는 순간, 클릭 수 세기를 시작한다. 이후로는
   // 회전이 일어날 때마다(click-marble에서) 다음 회전까지 필요한 수를 새로 뽑는다.
   const armRotation =
@@ -127,6 +137,7 @@ function addNextStage(state: State): State {
     marbles,
     lucky,
     stageIndex: state.stageIndex + 1,
+    mascotTriggered,
     hardRotateThreshold: armRotation
       ? pickRotateClickThreshold()
       : state.hardRotateThreshold,
@@ -344,6 +355,8 @@ export function useMarbleGame() {
     rotationAxisSwapped: Math.abs(state.rotationDeg / 90) % 2 === 1,
     lastRotationDirection: state.lastRotationDirection,
     rotationEventCount: state.rotationEventCount,
+    /** 게임을 진행하는 동안, 구슬이 한 번이라도 문턱을 넘었으면 놀림 캐릭터를 보여 준다. */
+    mascotVisible: state.phase === "playing" && state.mascotTriggered,
     nextNumber: state.nextNumber,
     lastClickedNumber: state.lastClickedNumber,
     elapsedMs: state.elapsedMs,
