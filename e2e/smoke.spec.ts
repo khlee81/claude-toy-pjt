@@ -43,6 +43,52 @@ test("순서를 틀리면 그 자리에서 끝나고 점수가 나온다", async
   await expect(page.getByRole("button", { name: "결과 캡쳐" })).toBeEnabled();
 });
 
+test("구슬이 5개를 넘으면 다음에 누를 구슬만 강조된다", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "게임 시작" }).click();
+
+  // 1단계 구슬은 3개뿐이라 아직 아무 구슬도 강조되지 않는다.
+  await expect(page.getByRole("button", { name: "구슬 1" })).toBeVisible({
+    timeout: 10_000,
+  });
+  await expect(page.locator("[data-next]")).toHaveCount(0);
+
+  // 2초가 지나 4~7번이 얹히면 화면 구슬은 7개가 되고, 1번만 강조된다.
+  await expect(page.getByRole("button", { name: "구슬 7" })).toBeVisible({
+    timeout: 5_000,
+  });
+  await expect(page.locator("[data-next]")).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "구슬 1" })).toHaveAttribute(
+    "data-next",
+    ""
+  );
+
+  // 하나 누르면 강조도 다음 번호로 옮겨간다.
+  await page.getByRole("button", { name: "구슬 1" }).click();
+  await expect(page.getByRole("button", { name: "구슬 2" })).toHaveAttribute(
+    "data-next",
+    ""
+  );
+});
+
+test("구슬 그림 바깥을 눌러도 그 구슬을 누른 것으로 친다", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "게임 시작" }).click();
+
+  const firstMarble = page.getByRole("button", { name: "구슬 1" });
+  await expect(firstMarble).toBeVisible({ timeout: 10_000 });
+
+  // 구슬 그림의 위쪽 가장자리 바로 바깥, 타일 안쪽을 노린다.
+  const circle = (await firstMarble.locator("span").boundingBox())!;
+  await page.mouse.click(circle.x + circle.width / 2, circle.y - 6);
+
+  await expect(firstMarble).toBeHidden();
+  await expect(
+    page.getByText("순서에 맞지 않는 곳을 눌렀습니다.")
+  ).toBeHidden();
+  await expect(page.getByRole("button", { name: "구슬 2" })).toBeVisible();
+});
+
 test("구슬이 없는 자리를 누르면 그 자리에서 끝난다", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "게임 시작" }).click();

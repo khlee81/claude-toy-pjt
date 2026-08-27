@@ -107,16 +107,26 @@
   pointer-events: none;
 }
 
-.marble {
+/* 타일 전체를 누를 수 있게 덮는 투명 버튼. 구슬 그림은 그 안에 놓인다. */
+.marbleHit {
   position: relative;
   z-index: 1;
-  width: calc(var(--hex-w) * 0.64);
-  height: calc(var(--hex-w) * 0.64);
+  width: 100%;
+  height: 100%;
   border: 0;
   padding: 0;
-  border-radius: 50%;
+  background: none;
   cursor: pointer;
   font: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.marble {
+  width: calc(var(--hex-w) * 0.64);
+  height: calc(var(--hex-w) * 0.64);
+  border-radius: 50%;
   font-size: calc(var(--hex-w) * 0.29);
   font-weight: 700;
   color: #fff;
@@ -138,9 +148,46 @@
   animation: marble-in 0.18s ease-out;
 }
 
-.marble:focus-visible {
+.marbleHit:focus-visible {
+  outline: none;
+}
+
+.marbleHit:focus-visible .marble {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
+}
+
+/* 판이 붐빌 때 다음 순번 구슬 하나만 호박색으로 띄우고 테두리를 맥박처럼 넓힌다. */
+.marbleNext {
+  transform: scale(1.08);
+  background: radial-gradient(
+    circle at 32% 26%,
+    #ffffff 0%,
+    #fff1c4 14%,
+    #ffb52c 46%,
+    #ef8106 74%,
+    #a94f00 100%
+  );
+  animation:
+    marble-in 0.18s ease-out,
+    next-pulse 1.15s ease-in-out 0.18s infinite;
+}
+
+@keyframes next-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 3px 8px rgba(120, 62, 0, 0.4),
+      inset 0 -3px 7px rgba(0, 0, 0, 0.2),
+      0 0 0 3px rgba(255, 174, 44, 0.55);
+  }
+  50% {
+    box-shadow:
+      0 3px 8px rgba(120, 62, 0, 0.4),
+      inset 0 -3px 7px rgba(0, 0, 0, 0.2),
+      0 0 0 5px rgba(255, 174, 44, 0.85),
+      0 0 16px 7px rgba(255, 174, 44, 0.4);
+  }
 }
 
 @keyframes marble-in {
@@ -214,6 +261,14 @@
   .marble,
   .countdown {
     animation: none;
+  }
+  /* 맥박은 걷어내되, 다음 구슬을 알아보는 단서는 남긴다. */
+  .marbleNext {
+    animation: none;
+    box-shadow:
+      0 3px 8px rgba(120, 62, 0, 0.4),
+      inset 0 -3px 7px rgba(0, 0, 0, 0.2),
+      0 0 0 4px rgba(255, 174, 44, 0.85);
   }
   .warning {
     animation: none;
