@@ -157,6 +157,135 @@
   outline-offset: 2px;
 }
 
+/* 게임 설명 속 행운 구슬 안내. 무지개 테두리로 목록과 구분해 눈에 먼저 걸리게 한다. */
+.luckyNotice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 2.5px solid transparent;
+  border-radius: var(--radius-md);
+  background:
+    linear-gradient(var(--card), var(--card)) padding-box,
+    linear-gradient(
+        100deg,
+        #ff5f6d,
+        #ffb36b,
+        #fff07a,
+        #6bffb0,
+        #5ecbff,
+        #9b8bff,
+        #ff7ae0
+      )
+      border-box;
+}
+
+/* 설명 안에 놓는 작은 행운 구슬 견본. --hex-w만 줄이면 크기가 따라 준다. */
+.luckySample {
+  --hex-w: 56px;
+  flex: none;
+}
+
+.luckyNoticeTitle {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.luckyNoticeBody {
+  margin: 3px 0 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--muted-foreground);
+}
+
+.luckyNoticePoint {
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+/* 행운 구슬: 어두운 바탕 위로 무지개 오로라가 돌고, 바깥 빛도 색을 바꾼다. */
+.marbleLucky {
+  position: relative;
+  overflow: hidden;
+  background: #2a1b4a;
+  animation:
+    marble-in 0.18s ease-out,
+    lucky-glow 2.8s ease-in-out infinite;
+}
+
+.marbleLuckyAurora {
+  position: absolute;
+  inset: -40%;
+  background: conic-gradient(
+    from 0deg,
+    #ff5f6d,
+    #ffb36b,
+    #fff07a,
+    #6bffb0,
+    #5ecbff,
+    #9b8bff,
+    #ff7ae0,
+    #ff5f6d
+  );
+  filter: blur(4px);
+  animation: lucky-spin 3.6s linear infinite;
+}
+
+/* 구형 광택. 오로라 위에 얹어 유리구슬처럼 보이게 한다. */
+.marbleLucky::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(
+      circle at 32% 26%,
+      rgba(255, 255, 255, 0.95) 0%,
+      rgba(255, 255, 255, 0.35) 16%,
+      transparent 46%
+    ),
+    radial-gradient(circle at 50% 118%, rgba(0, 0, 0, 0.32), transparent 55%);
+}
+
+.marbleLuckyMark {
+  position: relative;
+  z-index: 1;
+  font-size: calc(var(--hex-w) * 0.3);
+  line-height: 1;
+  color: #ffffff;
+  text-shadow: 0 1px 3px rgba(40, 10, 80, 0.75);
+}
+
+@keyframes lucky-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes lucky-glow {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 -3px 7px rgba(0, 0, 0, 0.25),
+      0 0 0 2px rgba(255, 255, 255, 0.55),
+      0 0 15px 4px rgba(255, 122, 224, 0.5);
+  }
+  33% {
+    box-shadow:
+      inset 0 -3px 7px rgba(0, 0, 0, 0.25),
+      0 0 0 2px rgba(255, 255, 255, 0.55),
+      0 0 17px 5px rgba(94, 203, 255, 0.55);
+  }
+  66% {
+    box-shadow:
+      inset 0 -3px 7px rgba(0, 0, 0, 0.25),
+      0 0 0 2px rgba(255, 255, 255, 0.55),
+      0 0 17px 5px rgba(107, 255, 176, 0.5);
+  }
+}
+
 /* 판이 붐빌 때 다음 순번 구슬 하나만 호박색으로 띄우고 테두리를 맥박처럼 넓힌다. */
 .marbleNext {
   transform: scale(1.08);
@@ -261,6 +390,17 @@
   .marble,
   .countdown {
     animation: none;
+  }
+  /* 오로라는 멈추되 무지개빛은 남겨, 행운 구슬을 여전히 알아볼 수 있게 한다. */
+  .marbleLucky,
+  .marbleLuckyAurora {
+    animation: none;
+  }
+  .marbleLucky {
+    box-shadow:
+      inset 0 -3px 7px rgba(0, 0, 0, 0.25),
+      0 0 0 2px rgba(255, 255, 255, 0.55),
+      0 0 12px 3px rgba(255, 122, 224, 0.45);
   }
   /* 맥박은 걷어내되, 다음 구슬을 알아보는 단서는 남긴다. */
   .marbleNext {

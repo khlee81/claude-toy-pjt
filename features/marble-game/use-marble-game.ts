@@ -6,14 +6,18 @@ import {
   COUNTDOWN_STEPS,
   COUNTDOWN_STEP_MS,
   HINT_AFTER_MARBLE_COUNT,
+  LUCKY_BONUS,
   STAGE_COUNT,
   STAGE_INTERVAL_MS,
   TIME_LIMIT_MS,
   TOTAL_MARBLE_COUNT,
   WARN_AFTER_MS,
   calculateScore,
+  createLuckyMarble,
   createStageMarbles,
+  pickLuckyStageIndex,
   type GameEnding,
+  type LuckyMarble,
   type Marble,
 } from "./game-rules";
 
@@ -23,6 +27,11 @@ type State = {
   phase: GamePhase;
   countdownStep: number;
   marbles: Marble[];
+  /** 아직 화면에 남아 있는 행운 구슬. 누르면 사라진다. */
+  lucky: LuckyMarble | null;
+  /** 행운 구슬을 내보낼 단계. 한 판에 한 번만 쓰이도록 판마다 새로 뽑는다. */
+  luckyStageIndex: number;
+  luckyTaken: boolean;
   stageIndex: number;
   nextNumber: number;
   lastClickedNumber: number;
@@ -37,6 +46,7 @@ type Action =
   | { type: "tick"; elapsedMs: number }
   | { type: "spawn-stage" }
   | { type: "click-marble"; number: number; elapsedMs: number }
+  | { type: "click-lucky"; elapsedMs: number }
   | { type: "click-empty"; elapsedMs: number }
   | { type: "stop"; elapsedMs: number }
   | { type: "show-help" };
@@ -45,6 +55,9 @@ const initialState: State = {
   phase: "idle",
   countdownStep: 0,
   marbles: [],
+  lucky: null,
+  luckyStageIndex: 0,
+  luckyTaken: false,
   stageIndex: 0,
   nextNumber: 1,
   lastClickedNumber: 0,
@@ -56,14 +69,30 @@ function endGame(state: State, ending: GameEnding, elapsedMs: number): State {
   return { ...state, phase: "result", ending, elapsedMs };
 }
 
+function occupiedTilesOf(state: State): number[] {
+  const tiles = state.marbles.map((marble) => marble.tileIndex);
+  return state.lucky ? [...tiles, state.lucky.tileIndex] : tiles;
+}
+
 function addNextStage(state: State): State {
   if (state.stageIndex >= STAGE_COUNT) return state;
+
+  const added = createStageMarbles(occupiedTilesOf(state), state.stageIndex);
+  const marbles = [...state.marbles, ...added];
+
+  // 정해진 단계가 오면 이 판의 행운 구슬을 한 번만 내보낸다.
+  const bringLucky =
+    state.stageIndex === state.luckyStageIndex &&
+    state.lucky === null &&
+    !state.luckyTaken;
+  const lucky = bringLucky
+    ? createLuckyMarble(marbles.map((marble) => marble.tileIndex))
+    : state.lucky;
+
   return {
     ...state,
-    marbles: [
-      ...state.marbles,
-      ...createStageMarbles(state.marbles, state.stageIndex),
-    ],
+    marbles,
+    lucky,
     stageIndex: state.stageIndex + 1,
   };
 }
@@ -71,7 +100,11 @@ function addNextStage(state: State): State {
 function reducer(state: State, action: Action): State {
   switch (action.type) {
     case "start":
-      return { ...initialState, phase: "countdown" };
+      return {
+        ...initialState,
+        phase: "countdown",
+        luckyStageIndex: pickLuckyStageIndex(),
+      };
 
     case "countdown-next":
       return { ...state, countdownStep: state.countdownStep + 1 };
@@ -80,6 +113,7 @@ function reducer(state: State, action: Action): State {
       return addNextStage({
         ...initialState,
         phase: "playing",
+        luckyStageIndex: state.luckyStageIndex,
       });
 
     case "tick": {
@@ -117,6 +151,16 @@ function reducer(state: State, action: Action): State {
       // 화면을 다 비웠으면 다음 단계를 기다리지 않고 바로 채운다.
       return remaining.length === 0 ? addNextStage(advanced) : advanced;
     }
+
+    // 행운 구슬은 순서 판정에 끼어들지 않는다. 다음 순번도 그대로 둔다.
+    case "click-lucky":
+      if (state.phase !== "playing" || state.lucky === null) return state;
+      return {
+        ...state,
+        lucky: null,
+        luckyTaken: true,
+        elapsedMs: action.elapsedMs,
+      };
 
     case "click-empty":
       if (state.phase !== "playing") return state;
@@ -208,16 +252,24 @@ export function useMarbleGame() {
     [readElapsed]
   );
 
+  const clickLucky = useCallback(() => {
+    dispatch({ type: "click-lucky", elapsedMs: readElapsed() });
+  }, [readElapsed]);
+
   const clickEmpty = useCallback(() => {
     dispatch({ type: "click-empty", elapsedMs: readElapsed() });
   }, [readElapsed]);
 
   const cleared = state.ending === "clear";
+  const visibleMarbleCount = state.marbles.length + (state.lucky ? 1 : 0);
 
   return {
     phase: state.phase,
     countdownLabel: COUNTDOWN_STEPS[state.countdownStep],
     marbles: state.marbles,
+    lucky: state.lucky,
+    luckyTaken: state.luckyTaken,
+    luckyBonus: state.luckyTaken ? LUCKY_BONUS : 0,
     nextNumber: state.nextNumber,
     lastClickedNumber: state.lastClickedNumber,
     elapsedMs: state.elapsedMs,
@@ -225,8 +277,7 @@ export function useMarbleGame() {
     cleared,
     /** 판이 붐빌 때만 다음에 눌러야 할 구슬 번호를 알려 준다. */
     hintedNumber:
-      state.phase === "playing" &&
-      state.marbles.length > HINT_AFTER_MARBLE_COUNT
+      state.phase === "playing" && visibleMarbleCount > HINT_AFTER_MARBLE_COUNT
         ? state.nextNumber
         : null,
     warning: state.phase === "playing" && state.elapsedMs > WARN_AFTER_MS,
@@ -234,6 +285,7 @@ export function useMarbleGame() {
       lastClickedNumber: state.lastClickedNumber,
       cleared,
       elapsedMs: state.elapsedMs,
+      luckyTaken: state.luckyTaken,
     }),
     remainingBonusSeconds: Math.max(
       0,
@@ -243,6 +295,7 @@ export function useMarbleGame() {
     stop,
     showHelp,
     clickMarble,
+    clickLucky,
     clickEmpty,
   };
 }

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 import {
+  LUCKY_BONUS,
   STAGE_COUNT,
   TIME_LIMIT_MS,
   TOTAL_MARBLE_COUNT,
@@ -37,9 +38,10 @@ export function MarbleGame() {
   const running = game.phase === "countdown" || game.phase === "playing";
   const finished = game.phase === "result";
 
+  const luckyNote = game.luckyTaken ? ` + 행운 ${game.luckyBonus}` : "";
   const scoreNote = game.cleared
-    ? `구슬 ${game.lastClickedNumber} + 남은 시간 ${game.remainingBonusSeconds}`
-    : `마지막으로 맞게 누른 구슬: ${game.lastClickedNumber}`;
+    ? `구슬 ${game.lastClickedNumber} + 남은 시간 ${game.remainingBonusSeconds}${luckyNote}`
+    : `마지막으로 맞게 누른 구슬: ${game.lastClickedNumber}${luckyNote}`;
 
   // 안내를 연달아 띄우면 앞 타이머가 뒤 메시지를 일찍 지우므로 매번 갈아 끼운다.
   function showNotice(message: string) {
@@ -51,6 +53,7 @@ export function MarbleGame() {
   function buildResultImage() {
     return renderResultImage({
       marbles: game.marbles,
+      lucky: game.lucky,
       score: game.score,
       cleared: game.cleared,
       scoreNote,
@@ -96,10 +99,12 @@ export function MarbleGame() {
 
       <HexBoard
         marbles={game.marbles}
+        lucky={game.lucky}
         interactive={game.phase === "playing"}
         hintedNumber={game.hintedNumber}
         warning={game.warning}
         onMarbleClick={game.clickMarble}
+        onLuckyClick={game.clickLucky}
         onEmptyClick={game.clickEmpty}
       >
         {game.phase === "idle" ? (
@@ -123,6 +128,34 @@ export function MarbleGame() {
                   모두 {STAGE_COUNT}단계입니다.
                 </li>
               </ol>
+
+              <div className={styles.luckyNotice}>
+                <span
+                  className={cn(
+                    styles.marble,
+                    styles.marbleLucky,
+                    styles.luckySample
+                  )}
+                  aria-hidden="true"
+                >
+                  <span className={styles.marbleLuckyAurora} />
+                  <span className={styles.marbleLuckyMark}>★</span>
+                </span>
+                <span>
+                  <span className={styles.luckyNoticeTitle}>
+                    무지개빛 행운 구슬
+                  </span>
+                  <p className={styles.luckyNoticeBody}>
+                    3~5단계 사이에 딱 한 번 나타납니다. 순서와 상관없이 아무 때나
+                    눌러도 되고, 누르면{" "}
+                    <span className={styles.luckyNoticePoint}>
+                      점수에 {LUCKY_BONUS}점
+                    </span>
+                    이 붙습니다.
+                  </p>
+                </span>
+              </div>
+
               <p className="mt-3.5 border-t pt-3 text-[13px] leading-relaxed text-muted-foreground">
                 제한 시간은 {TIME_LIMIT_SECONDS}초입니다. {WARN_AFTER_SECONDS}
                 초를 넘기면 판 둘레가 붉게 변합니다. 점수는 마지막으로 맞게 누른

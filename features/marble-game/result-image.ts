@@ -1,6 +1,7 @@
 import {
   BOARD_COLS,
   BOARD_ROWS,
+  type LuckyMarble,
   type Marble,
 } from "./game-rules";
 
@@ -86,14 +87,69 @@ function drawMarble(
   context.fillText(label, centerX, centerY + 1);
 }
 
+/** 행운 구슬은 무지개 색상환으로 칠하고 가운데 별을 얹는다. */
+function drawLuckyMarble(
+  context: CanvasRenderingContext2D,
+  centerX: number,
+  centerY: number
+) {
+  const radius = (HEX_WIDTH * 0.64) / 2;
+  const colors = [
+    "#ff5f6d",
+    "#ffb36b",
+    "#fff07a",
+    "#6bffb0",
+    "#5ecbff",
+    "#9b8bff",
+    "#ff7ae0",
+  ];
+
+  colors.forEach((color, index) => {
+    const start = (index / colors.length) * Math.PI * 2 - Math.PI / 2;
+    const end = ((index + 1) / colors.length) * Math.PI * 2 - Math.PI / 2;
+    context.beginPath();
+    context.moveTo(centerX, centerY);
+    context.arc(centerX, centerY, radius, start, end);
+    context.closePath();
+    context.fillStyle = color;
+    context.fill();
+  });
+
+  const gloss = context.createRadialGradient(
+    centerX - radius * 0.35,
+    centerY - radius * 0.45,
+    radius * 0.05,
+    centerX,
+    centerY,
+    radius
+  );
+  gloss.addColorStop(0, "rgba(255,255,255,0.95)");
+  gloss.addColorStop(0.2, "rgba(255,255,255,0.3)");
+  gloss.addColorStop(0.55, "rgba(255,255,255,0)");
+  gloss.addColorStop(1, "rgba(0,0,0,0.28)");
+
+  context.beginPath();
+  context.arc(centerX, centerY, radius, 0, Math.PI * 2);
+  context.fillStyle = gloss;
+  context.fill();
+
+  context.fillStyle = "#ffffff";
+  context.font = `700 ${Math.round(HEX_WIDTH * 0.3)}px ${FONT_STACK}`;
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.fillText("★", centerX, centerY + 1);
+}
+
 /** 남은 구슬이 놓인 판과 점수를 한 장에 담는다. */
 export function renderResultImage({
   marbles,
+  lucky,
   score,
   cleared,
   scoreNote,
 }: {
   marbles: Marble[];
+  lucky: LuckyMarble | null;
   score: number;
   cleared: boolean;
   scoreNote: string;
@@ -143,6 +199,11 @@ export function renderResultImage({
   for (const marble of marbles) {
     const { x, y } = tilePosition(marble.tileIndex);
     drawMarble(context, x + HEX_WIDTH / 2, y + HEX_HEIGHT / 2, String(marble.number));
+  }
+
+  if (lucky) {
+    const { x, y } = tilePosition(lucky.tileIndex);
+    drawLuckyMarble(context, x + HEX_WIDTH / 2, y + HEX_HEIGHT / 2);
   }
 
   const footerTop = boardTop + boardHeight;

@@ -2,11 +2,15 @@ import { describe, expect, test } from "vitest";
 
 import {
   BOARD_TILE_COUNT,
+  LUCKY_BONUS,
+  LUCKY_STAGE_INDEXES,
   STAGE_MARBLE_COUNTS,
   TIME_LIMIT_MS,
   TOTAL_MARBLE_COUNT,
   calculateScore,
+  createLuckyMarble,
   createStageMarbles,
+  pickLuckyStageIndex,
 } from "./game-rules";
 
 describe("점수 계산", () => {
@@ -60,13 +64,7 @@ describe("단계 구성", () => {
 
 describe("단계별 구슬 생성", () => {
   test("이미 구슬이 놓인 타일은 피한다", () => {
-    const placed = [
-      { number: 1, tileIndex: 0 },
-      { number: 2, tileIndex: 1 },
-      { number: 3, tileIndex: 2 },
-    ];
-
-    const added = createStageMarbles(placed, 1, () => 0);
+    const added = createStageMarbles([0, 1, 2], 1, () => 0);
 
     expect(added).toHaveLength(STAGE_MARBLE_COUNTS[1]);
     const usedTiles = added.map((marble) => marble.tileIndex);
@@ -77,12 +75,7 @@ describe("단계별 구슬 생성", () => {
   });
 
   test("이미 누른 구슬이 있어도 숫자는 앞 단계에 이어서 붙는다", () => {
-    const placed = [
-      { number: 5, tileIndex: 4 },
-      { number: 6, tileIndex: 7 },
-    ];
-
-    const added = createStageMarbles(placed, 2, () => 0.5);
+    const added = createStageMarbles([4, 7], 2, () => 0.5);
 
     expect(added.map((marble) => marble.number)).toEqual([8, 9, 10, 11, 12]);
   });
@@ -91,5 +84,70 @@ describe("단계별 구슬 생성", () => {
     const added = createStageMarbles([], 0, () => 0.5);
 
     expect(added.map((marble) => marble.number)).toEqual([1, 2, 3]);
+  });
+});
+
+describe("행운 구슬", () => {
+  test("점수 계산에서 행운 보너스는 클리어하지 못해도 붙는다", () => {
+    expect(
+      calculateScore({
+        lastClickedNumber: 9,
+        cleared: false,
+        elapsedMs: 9_600,
+        luckyTaken: true,
+      })
+    ).toBe(9 + LUCKY_BONUS);
+  });
+
+  test("행운 구슬을 누르지 않았으면 보너스가 없다", () => {
+    expect(
+      calculateScore({
+        lastClickedNumber: 9,
+        cleared: false,
+        elapsedMs: 9_600,
+        luckyTaken: false,
+      })
+    ).toBe(9);
+  });
+
+  test("클리어 보너스와 행운 보너스는 함께 붙는다", () => {
+    expect(
+      calculateScore({
+        lastClickedNumber: TOTAL_MARBLE_COUNT,
+        cleared: true,
+        elapsedMs: 12_300,
+        luckyTaken: true,
+      })
+    ).toBe(TOTAL_MARBLE_COUNT + 7 + LUCKY_BONUS);
+  });
+
+  test("나올 수 있는 단계는 3·4·5단계뿐이다", () => {
+    expect(LUCKY_STAGE_INDEXES).toEqual([2, 3, 4]);
+  });
+
+  test("무작위 값이 어떻든 3·4·5단계 중 하나를 고른다", () => {
+    const picks = [0, 0.34, 0.5, 0.67, 0.999].map((value) =>
+      pickLuckyStageIndex(() => value)
+    );
+
+    expect(new Set(picks).size).toBeGreaterThan(1);
+    for (const pick of picks) {
+      expect(LUCKY_STAGE_INDEXES).toContain(pick);
+    }
+  });
+
+  test("이미 구슬이 놓인 타일은 피해서 자리를 잡는다", () => {
+    const occupied = [0, 1, 2, 3];
+
+    const lucky = createLuckyMarble(occupied, () => 0);
+
+    expect(lucky).not.toBeNull();
+    expect(occupied).not.toContain(lucky!.tileIndex);
+  });
+
+  test("빈 타일이 없으면 자리를 잡지 못한다", () => {
+    const occupied = Array.from({ length: BOARD_TILE_COUNT }, (_, i) => i);
+
+    expect(createLuckyMarble(occupied, () => 0)).toBeNull();
   });
 });
