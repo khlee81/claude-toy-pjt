@@ -1,5 +1,7 @@
 import Image from "next/image";
 
+import { Button } from "@/components/ui/button";
+
 export default function Home() {
   return (
     <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
@@ -37,6 +39,18 @@ export default function Home() {
             </a>{" "}
             center.
           </p>
+        </div>
+        <div className="flex flex-col items-center gap-3 sm:items-start">
+          <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
+            shadcn preset (b311momZs0) 적용 확인
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button>기본 버튼</Button>
+            <Button variant="secondary">보조 버튼</Button>
+            <Button variant="outline">아웃라인 버튼</Button>
+            <Button variant="ghost">고스트 버튼</Button>
+            <Button variant="destructive">삭제 버튼</Button>
+          </div>
         </div>
         <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
           <a
