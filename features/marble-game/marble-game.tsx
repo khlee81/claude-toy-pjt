@@ -97,6 +97,7 @@ export function MarbleGame() {
       <HexBoard
         marbles={game.marbles}
         interactive={game.phase === "playing"}
+        hintedNumber={game.hintedNumber}
         warning={game.warning}
         onMarbleClick={game.clickMarble}
         onEmptyClick={game.clickEmpty}

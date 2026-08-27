@@ -5,6 +5,7 @@ import { useCallback, useEffect, useReducer, useRef } from "react";
 import {
   COUNTDOWN_STEPS,
   COUNTDOWN_STEP_MS,
+  HINT_AFTER_MARBLE_COUNT,
   STAGE_COUNT,
   STAGE_INTERVAL_MS,
   TIME_LIMIT_MS,
@@ -222,6 +223,12 @@ export function useMarbleGame() {
     elapsedMs: state.elapsedMs,
     ending: state.ending,
     cleared,
+    /** 판이 붐빌 때만 다음에 눌러야 할 구슬 번호를 알려 준다. */
+    hintedNumber:
+      state.phase === "playing" &&
+      state.marbles.length > HINT_AFTER_MARBLE_COUNT
+        ? state.nextNumber
+        : null,
     warning: state.phase === "playing" && state.elapsedMs > WARN_AFTER_MS,
     score: calculateScore({
       lastClickedNumber: state.lastClickedNumber,

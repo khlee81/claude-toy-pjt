@@ -11,6 +11,8 @@ type HexBoardProps = {
   marbles: Marble[];
   /** 진행 중일 때만 구슬과 빈 타일 클릭을 게임 입력으로 받는다. */
   interactive: boolean;
+  /** 판이 붐빌 때 눈에 띄게 표시할 구슬 번호. 없으면 아무 구슬도 강조하지 않는다. */
+  hintedNumber: number | null;
   warning: boolean;
   onMarbleClick: (marbleNumber: number) => void;
   onEmptyClick: () => void;
@@ -20,6 +22,7 @@ type HexBoardProps = {
 export function HexBoard({
   marbles,
   interactive,
+  hintedNumber,
   warning,
   onMarbleClick,
   onEmptyClick,
@@ -48,16 +51,26 @@ export function HexBoard({
               return (
                 <div key={tileIndex} className={styles.tile}>
                   {marble ? (
+                    // 누르는 영역은 타일 전체다. 구슬 그림보다 넓게 잡아,
+                    // 구슬을 겨냥한 클릭이 빈 자리로 새어 게임이 끝나지 않게 한다.
                     <button
                       type="button"
-                      className={styles.marble}
+                      className={styles.marbleHit}
                       aria-label={`구슬 ${marble.number}`}
+                      data-next={marble.number === hintedNumber ? "" : undefined}
                       onClick={(event) => {
                         event.stopPropagation();
                         if (interactive) onMarbleClick(marble.number);
                       }}
                     >
-                      {marble.number}
+                      <span
+                        className={cn(
+                          styles.marble,
+                          marble.number === hintedNumber && styles.marbleNext
+                        )}
+                      >
+                        {marble.number}
+                      </span>
                     </button>
                   ) : null}
                 </div>

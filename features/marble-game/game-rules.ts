@@ -16,6 +16,9 @@ export const TOTAL_MARBLE_COUNT = STAGE_MARBLE_COUNTS.reduce(
   0
 );
 
+/** 화면의 구슬이 이 수를 넘으면 다음에 눌러야 할 구슬을 표시해 준다. */
+export const HINT_AFTER_MARBLE_COUNT = 5;
+
 export const TIME_LIMIT_MS = 20_000;
 export const WARN_AFTER_MS = 15_000;
 export const STAGE_INTERVAL_MS = 2_000;
