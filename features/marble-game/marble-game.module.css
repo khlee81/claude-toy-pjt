@@ -1,0 +1,224 @@
+.board {
+  --hex-w: 52px;
+  --hex-gap: 5px;
+  --ice-face: #fbfeff;
+  --ice-mid: #e4f2fb;
+  --ice-deep: #cbe4f4;
+
+  position: relative;
+  /* 격자와 오버레이를 같은 칸에 겹쳐 두어, 설명처럼 큰 내용이 와도 판이 함께 늘어난다. */
+  display: grid;
+  justify-items: center;
+  align-items: center;
+  padding: 16px 10px 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: linear-gradient(168deg, #eef8fe, #d5eaf7);
+  box-shadow:
+    inset 0 1px 0 #fff,
+    inset 0 -14px 28px rgba(120, 175, 205, 0.16);
+  transition: box-shadow 0.2s;
+  user-select: none;
+}
+
+@media (min-width: 640px) {
+  .board {
+    --hex-w: 66px;
+    --hex-gap: 6px;
+    padding: 20px 14px 24px;
+  }
+}
+
+@media (min-width: 768px) {
+  .board {
+    --hex-w: 78px;
+    --hex-gap: 7px;
+    padding: 22px 16px 26px;
+  }
+}
+
+.warning {
+  border-color: var(--destructive);
+  animation: warn-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes warn-pulse {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 1px 0 #fff,
+      0 0 0 3px var(--destructive),
+      0 0 22px oklch(0.577 0.245 27.325 / 0.3);
+  }
+  50% {
+    box-shadow:
+      inset 0 1px 0 #fff,
+      0 0 0 3px var(--destructive),
+      0 0 34px oklch(0.577 0.245 27.325 / 0.55);
+  }
+}
+
+.grid {
+  grid-area: 1 / 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: flex;
+  gap: var(--hex-gap);
+  margin-top: calc(var(--hex-w) * -0.2);
+}
+
+.row:first-child {
+  margin-top: 0;
+}
+
+.rowOffset {
+  margin-left: calc((var(--hex-w) + var(--hex-gap)) / 2);
+}
+
+.tile {
+  position: relative;
+  flex: none;
+  width: var(--hex-w);
+  height: calc(var(--hex-w) * 1.1547);
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  background: linear-gradient(
+    152deg,
+    var(--ice-face) 0%,
+    var(--ice-mid) 52%,
+    var(--ice-deep) 100%
+  );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    210deg,
+    rgba(255, 255, 255, 0.7) 0 20%,
+    transparent 40%
+  );
+  pointer-events: none;
+}
+
+.marble {
+  position: relative;
+  z-index: 1;
+  width: calc(var(--hex-w) * 0.64);
+  height: calc(var(--hex-w) * 0.64);
+  border: 0;
+  padding: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  font: inherit;
+  font-size: calc(var(--hex-w) * 0.29);
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(10, 20, 60, 0.55);
+  background: radial-gradient(
+    circle at 32% 26%,
+    #ffffff 0%,
+    #cfe0ff 14%,
+    #6f8bf5 48%,
+    #3b4fd0 76%,
+    #2233a3 100%
+  );
+  box-shadow:
+    0 3px 7px rgba(24, 44, 92, 0.34),
+    inset 0 -3px 7px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: marble-in 0.18s ease-out;
+}
+
+.marble:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+@keyframes marble-in {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.overlay {
+  grid-area: 1 / 1;
+  /* 타일에 position이 있어, 오버레이도 쌓임 순서를 명시해야 위로 온다. */
+  position: relative;
+  z-index: 2;
+  justify-self: stretch;
+  align-self: stretch;
+  border-radius: calc(var(--radius-xl) - 8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  text-align: center;
+}
+
+.overlayDim {
+  background: oklch(1 0 0 / 0.45);
+}
+
+.countdown {
+  font-size: 62px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--primary);
+  animation: count-pop 0.42s ease-out;
+}
+
+.countdownGo {
+  font-size: 38px;
+}
+
+@media (min-width: 768px) {
+  .countdown {
+    font-size: 96px;
+  }
+  .countdownGo {
+    font-size: 58px;
+  }
+}
+
+@keyframes count-pop {
+  from {
+    transform: scale(0.6);
+    opacity: 0.2;
+  }
+  60% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marble,
+  .countdown {
+    animation: none;
+  }
+  .warning {
+    animation: none;
+    box-shadow:
+      inset 0 1px 0 #fff,
+      0 0 0 3px var(--destructive);
+  }
+}
