@@ -381,6 +381,56 @@
   background: oklch(1 0 0 / 0.45);
 }
 
+/* 클리어 결과 카드 위로도 날아가도록, 카드보다 z-index를 높게 둔다. */
+.fireworks {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.fireworkParticle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  background: var(--spark-color);
+  box-shadow: 0 0 12px 3px var(--spark-color);
+  opacity: 0;
+  transform: rotate(var(--angle)) translateY(0) scale(0.3);
+  animation: firework-burst 1.1s var(--delay, 0s) ease-out forwards;
+}
+
+/*
+ * 스파크는 튀어나가는 내내 또렷하게 보이다가 끝에서만 사그라들어야 한다.
+ * scale을 계속 줄이면 몇 픽셀짜리 점이 되어 안 보이므로, 커졌다가 거의
+ * 그대로 유지한 뒤 마지막에만 살짝 줄면서 opacity로 사라지게 한다.
+ */
+@keyframes firework-burst {
+  0% {
+    transform: rotate(var(--angle)) translateY(0) scale(0.3);
+    opacity: 1;
+  }
+  18% {
+    transform: rotate(var(--angle)) translateY(calc(var(--distance) * -0.2))
+      scale(1.15);
+    opacity: 1;
+  }
+  70% {
+    transform: rotate(var(--angle)) translateY(calc(var(--distance) * -0.85))
+      scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(var(--angle)) translateY(calc(var(--distance) * -1)) scale(0.7);
+    opacity: 0;
+  }
+}
+
 .countdown {
   font-size: 62px;
   font-weight: 700;
@@ -422,6 +472,10 @@
   .marble,
   .countdown {
     animation: none;
+  }
+  /* 크게 터지는 움직임이라 움직임을 줄인 사용자에게는 아예 보여주지 않는다. */
+  .fireworks {
+    display: none;
   }
   /* 회전 자체는 게임 규칙이라 없애지 않되, 서서히 도는 대신 바로 자리를 바꾼다. */
   .board,
