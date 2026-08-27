@@ -2,8 +2,11 @@ import { describe, expect, test } from "vitest";
 
 import {
   BOARD_TILE_COUNT,
+  HARD_ROTATE_CLICK_THRESHOLDS,
+  HARD_SCORE_MULTIPLIER,
   LUCKY_BONUS,
   LUCKY_STAGE_INDEXES,
+  ROTATION_DEGREES,
   STAGE_MARBLE_COUNTS,
   TIME_LIMIT_MS,
   TOTAL_MARBLE_COUNT,
@@ -11,12 +14,15 @@ import {
   createLuckyMarble,
   createStageMarbles,
   pickLuckyStageIndex,
+  pickRotateClickThreshold,
+  pickRotationDirection,
 } from "./game-rules";
 
 describe("점수 계산", () => {
   test("클리어하지 못하면 마지막으로 맞게 누른 구슬의 숫자가 점수다", () => {
     expect(
       calculateScore({ lastClickedNumber: 9, cleared: false, elapsedMs: 9_600 })
+        .total
     ).toBe(9);
   });
 
@@ -26,7 +32,7 @@ describe("점수 계산", () => {
         lastClickedNumber: 0,
         cleared: false,
         elapsedMs: TIME_LIMIT_MS,
-      })
+      }).total
     ).toBe(0);
   });
 
@@ -36,7 +42,7 @@ describe("점수 계산", () => {
         lastClickedNumber: TOTAL_MARBLE_COUNT,
         cleared: true,
         elapsedMs: 12_300,
-      })
+      }).total
     ).toBe(TOTAL_MARBLE_COUNT + 7);
   });
 
@@ -46,7 +52,7 @@ describe("점수 계산", () => {
         lastClickedNumber: TOTAL_MARBLE_COUNT,
         cleared: true,
         elapsedMs: TIME_LIMIT_MS,
-      })
+      }).total
     ).toBe(TOTAL_MARBLE_COUNT);
   });
 });
@@ -95,7 +101,7 @@ describe("행운 구슬", () => {
         cleared: false,
         elapsedMs: 9_600,
         luckyTaken: true,
-      })
+      }).total
     ).toBe(9 + LUCKY_BONUS);
   });
 
@@ -106,7 +112,7 @@ describe("행운 구슬", () => {
         cleared: false,
         elapsedMs: 9_600,
         luckyTaken: false,
-      })
+      }).total
     ).toBe(9);
   });
 
@@ -117,7 +123,7 @@ describe("행운 구슬", () => {
         cleared: true,
         elapsedMs: 12_300,
         luckyTaken: true,
-      })
+      }).total
     ).toBe(TOTAL_MARBLE_COUNT + 7 + LUCKY_BONUS);
   });
 
@@ -149,5 +155,75 @@ describe("행운 구슬", () => {
     const occupied = Array.from({ length: BOARD_TILE_COUNT }, (_, i) => i);
 
     expect(createLuckyMarble(occupied, () => 0)).toBeNull();
+  });
+});
+
+describe("어려움 모드 점수", () => {
+  test("기본 점수, 시간 보너스, 행운 보너스가 모두 3배가 된다", () => {
+    const breakdown = calculateScore({
+      lastClickedNumber: TOTAL_MARBLE_COUNT,
+      cleared: true,
+      elapsedMs: 12_300,
+      luckyTaken: true,
+      mode: "hard",
+    });
+
+    expect(breakdown.base).toBe(TOTAL_MARBLE_COUNT * HARD_SCORE_MULTIPLIER);
+    expect(breakdown.timeBonus).toBe(7 * HARD_SCORE_MULTIPLIER);
+    expect(breakdown.luckyBonus).toBe(LUCKY_BONUS * HARD_SCORE_MULTIPLIER);
+    expect(breakdown.total).toBe(
+      (TOTAL_MARBLE_COUNT + 7 + LUCKY_BONUS) * HARD_SCORE_MULTIPLIER
+    );
+  });
+
+  test("클리어하지 못해도 기본 점수는 3배가 된다", () => {
+    const breakdown = calculateScore({
+      lastClickedNumber: 9,
+      cleared: false,
+      elapsedMs: 9_600,
+      mode: "hard",
+    });
+
+    expect(breakdown.base).toBe(9 * HARD_SCORE_MULTIPLIER);
+    expect(breakdown.timeBonus).toBe(0);
+    expect(breakdown.total).toBe(9 * HARD_SCORE_MULTIPLIER);
+  });
+
+  test("쉬움 모드는 배수가 걸리지 않는다", () => {
+    const breakdown = calculateScore({
+      lastClickedNumber: 9,
+      cleared: false,
+      elapsedMs: 9_600,
+      mode: "easy",
+    });
+
+    expect(breakdown.base).toBe(9);
+  });
+});
+
+describe("어려움 모드 회전", () => {
+  test("회전까지 필요한 클릭 수는 2 또는 3이다", () => {
+    expect(HARD_ROTATE_CLICK_THRESHOLDS).toEqual([2, 3]);
+  });
+
+  test("무작위 값이 어떻든 2 또는 3을 고른다", () => {
+    const picks = [0, 0.3, 0.5, 0.7, 0.999].map((value) =>
+      pickRotateClickThreshold(() => value)
+    );
+
+    expect(new Set(picks).size).toBeGreaterThan(1);
+    for (const pick of picks) {
+      expect(HARD_ROTATE_CLICK_THRESHOLDS).toContain(pick);
+    }
+  });
+
+  test("무작위 값의 절반은 왼쪽, 절반은 오른쪽이다", () => {
+    expect(pickRotationDirection(() => 0)).toBe("left");
+    expect(pickRotationDirection(() => 0.999)).toBe("right");
+  });
+
+  test("왼쪽은 -90도, 오른쪽은 90도다", () => {
+    expect(ROTATION_DEGREES.left).toBe(-90);
+    expect(ROTATION_DEGREES.right).toBe(90);
   });
 });

@@ -81,25 +81,81 @@ export const COUNTDOWN_STEP_MS = 700;
 /** 게임이 끝난 이유. 점수 보너스는 `clear`일 때만 붙는다. */
 export type GameEnding = "clear" | "miss" | "timeout" | "stopped";
 
+/** 쉬움은 지금까지의 규칙 그대로다. 어려움은 회전이 추가되고 점수가 3배가 된다. */
+export type GameMode = "easy" | "hard";
+
+/** 어려움 모드에서 점수 각 항목에 곱해지는 배수. */
+export const HARD_SCORE_MULTIPLIER = 3;
+
+/** 점수를 이루는 항목별 값. 세 값을 더하면 최종 점수(total)다. */
+export type ScoreBreakdown = {
+  base: number;
+  timeBonus: number;
+  luckyBonus: number;
+  total: number;
+};
+
 export function calculateScore({
   lastClickedNumber,
   cleared,
   elapsedMs,
   luckyTaken = false,
+  mode = "easy",
 }: {
   lastClickedNumber: number;
   cleared: boolean;
   elapsedMs: number;
   luckyTaken?: boolean;
-}): number {
-  const luckyBonus = luckyTaken ? LUCKY_BONUS : 0;
-  if (!cleared) return lastClickedNumber + luckyBonus;
+  mode?: GameMode;
+}): ScoreBreakdown {
+  const multiplier = mode === "hard" ? HARD_SCORE_MULTIPLIER : 1;
+  const remainingSeconds = cleared
+    ? Math.max(0, Math.floor((TIME_LIMIT_MS - elapsedMs) / 1000))
+    : 0;
 
-  const remainingSeconds = Math.max(
-    0,
-    Math.floor((TIME_LIMIT_MS - elapsedMs) / 1000)
+  const base = lastClickedNumber * multiplier;
+  const timeBonus = remainingSeconds * multiplier;
+  const luckyBonus = (luckyTaken ? LUCKY_BONUS : 0) * multiplier;
+
+  return {
+    base,
+    timeBonus,
+    luckyBonus,
+    total: base + timeBonus + luckyBonus,
+  };
+}
+
+/** 어려움 모드에서 판을 돌리는 방향. */
+export type RotationDirection = "left" | "right";
+
+export const ROTATION_DEGREES: Record<RotationDirection, number> = {
+  left: -90,
+  right: 90,
+};
+
+/**
+ * 회전이 걸리는 기준 단계(0-based)다. 이 단계, 즉 2단계 구슬이 화면에 나오는
+ * 순간부터 이어지는 정답 클릭 수를 센다.
+ */
+export const HARD_ROTATE_TRIGGER_STAGE_INDEX = 1;
+
+/** 회전까지 필요한 클릭 수 후보. 판마다 이 중 하나를 무작위로 고른다. */
+export const HARD_ROTATE_CLICK_THRESHOLDS = [2, 3] as const;
+
+export function pickRotateClickThreshold(
+  random: () => number = Math.random
+): number {
+  const position = Math.min(
+    HARD_ROTATE_CLICK_THRESHOLDS.length - 1,
+    Math.floor(random() * HARD_ROTATE_CLICK_THRESHOLDS.length)
   );
-  return lastClickedNumber + remainingSeconds + luckyBonus;
+  return HARD_ROTATE_CLICK_THRESHOLDS[position];
+}
+
+export function pickRotationDirection(
+  random: () => number = Math.random
+): RotationDirection {
+  return random() < 0.5 ? "left" : "right";
 }
 
 /**

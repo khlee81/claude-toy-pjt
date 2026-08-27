@@ -209,3 +209,92 @@ test("결과 캡쳐를 누르면 점수가 담긴 이미지를 내려받는다",
   expect(download.suggestedFilename()).toBe("marble-game-1.png");
   await download.saveAs(path.join(testInfo.outputDir, "result.png"));
 });
+
+test("난이도는 기본 쉬움이고, 게임 중에는 바꿀 수 없다", async ({ page }) => {
+  await page.goto("/");
+
+  const select = page.getByRole("combobox", { name: "난이도" });
+  await expect(select).toHaveValue("easy");
+
+  await select.selectOption("hard");
+  await expect(select).toHaveValue("hard");
+  await expect(
+    page.getByText(/어려움 모드에서는 이 점수가 모두 3배가 됩니다/)
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "게임 시작" }).click();
+  await expect(select).toBeDisabled();
+
+  await page.getByRole("button", { name: "게임 종료" }).click();
+  await expect(select).toBeEnabled();
+  await expect(select).toHaveValue("hard");
+});
+
+test("어려움 모드에서는 클릭 몇 번마다 판이 계속 돈다", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("combobox", { name: "난이도" }).selectOption("hard");
+  await page.getByRole("button", { name: "게임 시작" }).click();
+
+  const board = page.getByTestId("game-board");
+  await expect(page.getByRole("button", { name: "구슬 1", exact: true })).toBeVisible({
+    timeout: 10_000,
+  });
+  await expect(board).not.toHaveAttribute("data-rotation");
+
+  // 2단계 이후 남은 19번의 정답 클릭 동안, 2~3번마다 도니 최소 6번은 돈다.
+  // 22번까지 다 눌러 값이 최소 두 번 이상 바뀌는지(=여러 번 돈다) 확인한다.
+  const seenRotations = new Set<string>();
+  for (let n = 1; n <= 22; n++) {
+    await page.getByRole("button", { name: `구슬 ${n}`, exact: true }).click();
+    const rotation = await board.getAttribute("data-rotation");
+    if (rotation) seenRotations.add(rotation);
+  }
+
+  expect(seenRotations.size).toBeGreaterThanOrEqual(2);
+});
+
+test("판이 90도(홀수 배)로 돌아 있을 때는 배경이 늘어나 타일을 다 담는다", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("combobox", { name: "난이도" }).selectOption("hard");
+  await page.getByRole("button", { name: "게임 시작" }).click();
+
+  const board = page.getByTestId("game-board");
+  await expect(page.getByRole("button", { name: "구슬 1", exact: true })).toBeVisible({
+    timeout: 10_000,
+  });
+
+  // data-axis-swapped가 나타날 때까지 순서대로 누른다. 22번 안에는 반드시 걸린다.
+  let swapped = false;
+  for (let n = 1; n <= 22 && !swapped; n++) {
+    await page.getByRole("button", { name: `구슬 ${n}`, exact: true }).click();
+    swapped = (await board.getAttribute("data-axis-swapped")) !== null;
+  }
+  expect(swapped).toBe(true);
+
+  const boardBox = (await board.boundingBox())!;
+  const tileBoxes = await page.locator('[aria-label^="구슬"]').evaluateAll(
+    (nodes) => nodes.map((node) => node.getBoundingClientRect().toJSON())
+  );
+
+  for (const tile of tileBoxes) {
+    expect(tile.top).toBeGreaterThanOrEqual(boardBox.y - 1);
+    expect(tile.bottom).toBeLessThanOrEqual(boardBox.y + boardBox.height + 1);
+  }
+});
+
+test("어려움 모드는 구슬 점수와 남은 시간 보너스가 3배다", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("combobox", { name: "난이도" }).selectOption("hard");
+  await page.getByRole("button", { name: "게임 시작" }).click();
+
+  await expect(page.getByRole("button", { name: "구슬 1", exact: true })).toBeVisible({
+    timeout: 10_000,
+  });
+  await page.getByRole("button", { name: "구슬 1", exact: true }).click();
+  await page.getByRole("button", { name: "게임 종료" }).click();
+
+  await expect(page.getByText("3점")).toBeVisible();
+  await expect(page.getByText(/마지막으로 맞게 누른 구슬: 1 × 3/)).toBeVisible();
+});

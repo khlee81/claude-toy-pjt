@@ -4,6 +4,8 @@
   --ice-face: #fbfeff;
   --ice-mid: #e4f2fb;
   --ice-deep: #cbe4f4;
+  /* 어려움 모드에서만 인라인 스타일로 채워진다. 판과 구슬이 이 값을 함께 쓴다. */
+  --rotate: 0deg;
 
   position: relative;
   /* 격자와 오버레이를 같은 칸에 겹쳐 두어, 설명처럼 큰 내용이 와도 판이 함께 늘어난다. */
@@ -17,7 +19,9 @@
   box-shadow:
     inset 0 1px 0 #fff,
     inset 0 -14px 28px rgba(120, 175, 205, 0.16);
-  transition: box-shadow 0.2s;
+  transition:
+    box-shadow 0.2s,
+    min-height 0.6s ease;
   user-select: none;
 }
 
@@ -34,6 +38,28 @@
     --hex-w: 78px;
     --hex-gap: 7px;
     padding: 22px 16px 26px;
+  }
+}
+
+/*
+ * 판이 90도(홀수 배) 돌면 가로였던 격자 너비가 세로가 된다. 배경이 그만큼
+ * 세로로 넉넉하지 않으면 회전한 타일이 배경 밖으로 삐져나온다. 격자의 실제
+ * 너비 계산식(5.5 * --hex-w + 4.5 * --hex-gap, hex-board.tsx의 5행 5열 배치와
+ * 짝을 맞춘 값)에 위아래 패딩을 더해, 돌았을 때 필요한 만큼만 배경을 키운다.
+ */
+.board[data-axis-swapped] {
+  min-height: calc(5.5 * var(--hex-w) + 4.5 * var(--hex-gap) + 34px);
+}
+
+@media (min-width: 640px) {
+  .board[data-axis-swapped] {
+    min-height: calc(5.5 * var(--hex-w) + 4.5 * var(--hex-gap) + 44px);
+  }
+}
+
+@media (min-width: 768px) {
+  .board[data-axis-swapped] {
+    min-height: calc(5.5 * var(--hex-w) + 4.5 * var(--hex-gap) + 48px);
   }
 }
 
@@ -62,6 +88,9 @@
   grid-area: 1 / 1;
   display: flex;
   flex-direction: column;
+  /* 어려움 모드의 회전. 타일과 구슬을 한 덩어리로 돌린다. */
+  transform: rotate(var(--rotate));
+  transition: transform 0.6s ease;
 }
 
 .row {
@@ -146,6 +175,9 @@
   align-items: center;
   justify-content: center;
   animation: marble-in 0.18s ease-out;
+  /* 판 전체가 돌아도 숫자는 그대로 세워 두도록 반대 방향으로 되돌린다. */
+  transform: rotate(calc(var(--rotate) * -1));
+  transition: transform 0.6s ease;
 }
 
 .marbleHit:focus-visible {
@@ -288,7 +320,7 @@
 
 /* 판이 붐빌 때 다음 순번 구슬 하나만 호박색으로 띄우고 테두리를 맥박처럼 넓힌다. */
 .marbleNext {
-  transform: scale(1.08);
+  transform: rotate(calc(var(--rotate) * -1)) scale(1.08);
   background: radial-gradient(
     circle at 32% 26%,
     #ffffff 0%,
@@ -390,6 +422,13 @@
   .marble,
   .countdown {
     animation: none;
+  }
+  /* 회전 자체는 게임 규칙이라 없애지 않되, 서서히 도는 대신 바로 자리를 바꾼다. */
+  .board,
+  .grid,
+  .marble,
+  .marbleNext {
+    transition: none;
   }
   /* 오로라는 멈추되 무지개빛은 남겨, 행운 구슬을 여전히 알아볼 수 있게 한다. */
   .marbleLucky,
