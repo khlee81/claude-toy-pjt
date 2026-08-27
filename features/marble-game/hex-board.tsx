@@ -4,11 +4,19 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
-import { BOARD_COLS, BOARD_ROWS, type Marble } from "./game-rules";
+import {
+  BOARD_COLS,
+  BOARD_ROWS,
+  type LuckyMarble,
+  type Marble,
+} from "./game-rules";
 import styles from "./marble-game.module.css";
 
 type HexBoardProps = {
   marbles: Marble[];
+  /** 아직 눌리지 않은 행운 구슬. 없으면 그리지 않는다. */
+  lucky: LuckyMarble | null;
+  onLuckyClick: () => void;
   /** 진행 중일 때만 구슬과 빈 타일 클릭을 게임 입력으로 받는다. */
   interactive: boolean;
   /** 판이 붐빌 때 눈에 띄게 표시할 구슬 번호. 없으면 아무 구슬도 강조하지 않는다. */
@@ -21,10 +29,12 @@ type HexBoardProps = {
 
 export function HexBoard({
   marbles,
+  lucky,
   interactive,
   hintedNumber,
   warning,
   onMarbleClick,
+  onLuckyClick,
   onEmptyClick,
   children,
 }: HexBoardProps) {
@@ -47,9 +57,28 @@ export function HexBoard({
             {Array.from({ length: BOARD_COLS }, (_, col) => {
               const tileIndex = row * BOARD_COLS + col;
               const marble = marbleByTile.get(tileIndex);
+              const isLucky = lucky?.tileIndex === tileIndex;
 
               return (
                 <div key={tileIndex} className={styles.tile}>
+                  {isLucky ? (
+                    <button
+                      type="button"
+                      className={styles.marbleHit}
+                      aria-label="행운 구슬"
+                      data-lucky=""
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        if (interactive) onLuckyClick();
+                      }}
+                    >
+                      <span className={cn(styles.marble, styles.marbleLucky)}>
+                        <span className={styles.marbleLuckyAurora} />
+                        <span className={styles.marbleLuckyMark}>★</span>
+                      </span>
+                    </button>
+                  ) : null}
+
                   {marble ? (
                     // 누르는 영역은 타일 전체다. 구슬 그림보다 넓게 잡아,
                     // 구슬을 겨냥한 클릭이 빈 자리로 새어 게임이 끝나지 않게 한다.
